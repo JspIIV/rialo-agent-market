@@ -1,0 +1,18 @@
+package rialo:rialo-agent-marketplace@0.1.0;
+
+use rialo:primitives@0.1.0.{pubkey, lamports, timestamp, error};
+
+world rialo-agent-marketplace {
+    export initialize: func(owner: string) -> result<_, error>;
+    export pause-marketplace: func(caller: string) -> result<_, error>;
+    export resume-marketplace: func(caller: string) -> result<_, error>;
+    export list-agents: func() -> result<_, error>;
+    export get-marketplace-stats: func() -> result<_, error>;
+    export list-open-tasks: func() -> result<_, error>;
+    export register-agent: func(name: string, capabilities-csv: string, price-per-task: u64, endpoint: string, owner-pubkey: string) -> result<_, error>;
+    export deactivate-agent: func(agent-id: u64, caller: string) -> result<_, error>;
+    export post-task: func(title: string, description: string, required-capability: string, budget: u64, poster: string) -> result<_, error>;
+    export assign-task: func(task-id: u64, agent-id: u64) -> result<_, error>;
+    export dispute-task: func(task-id: u64, caller: string) -> result<_, error>;
+    export cancel-task: func(task-id: u64, caller: string) -> result<_, error>;
+}

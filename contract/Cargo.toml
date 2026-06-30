@@ -8,9 +8,12 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 rialo-venus-proc-macro = "*"
+rialo-venus = "*"
+rialo-subscriber-interface = "*"
 rialo-s-program = "*"
 rialo-s-program-error = "*"
 rialo-rex-processor-interface = "*"
 rialo-types = "*"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+bincode = "1"
