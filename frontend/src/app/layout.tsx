@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
 import WalletModal from "@/components/WalletModal";
 import { WalletProvider } from "@/context/WalletContext";
 import { AgentsProvider } from "@/context/AgentsContext";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AgentsProvider>
             <Navbar />
             <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
+            <Footer />
             <WalletModal />
           </AgentsProvider>
         </WalletProvider>

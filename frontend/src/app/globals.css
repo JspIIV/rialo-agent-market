@@ -98,3 +98,15 @@ h1, h2, h3, .font-display {
   50% { transform: translateY(-10px); }
 }
 .float-slow { animation: float-slow 6s ease-in-out infinite; }
+
+@keyframes line-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.log-line { opacity: 0; animation: line-in 0.5s ease forwards; }
+
+@keyframes step-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.step-active { animation: step-pulse 1.2s ease-in-out infinite; }

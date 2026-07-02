@@ -1,9 +1,10 @@
 "use client";
-import { useState } from "react";
-import { ClipboardList, Plus, Zap, Clock, CheckCircle, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { ClipboardList, Plus, Zap, Clock, CheckCircle, AlertCircle, XCircle, Loader2, ChevronDown, Send, Radio } from "lucide-react";
 import clsx from "clsx";
 import { useWallet } from "@/context/WalletContext";
-import { useAgents, Agent } from "@/context/AgentsContext";
+import { useAgents, Agent, isLiveAgent } from "@/context/AgentsContext";
 
 type TaskStatus = "open" | "assigned" | "in-progress" | "completed" | "disputed" | "cancelled";
 
@@ -17,6 +18,9 @@ type Task = {
   status: TaskStatus;
   assignedAgent?: string;
   result?: string;
+  durationMs?: number;
+  dispatchedTo?: string;
+  requestPayload?: string;
   createdAt: string;
 };
 
@@ -41,65 +45,133 @@ const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; icon: Re
 
 const ALL_CAPS = ["text-summary","translation","code-review","security-audit","unit-tests","data-analysis"];
 
-export default function TasksPage() {
+function TasksPageInner() {
   const [tasks, setTasks]     = useState<Task[]>(MOCK_TASKS);
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dispatching, setDispatching]   = useState<number | null>(null);
   const [form, setForm] = useState({ title:"", description:"", capability:"text-summary", budget:"", poster:"" });
   const [pickerFor, setPickerFor] = useState<number | null>(null);
-  const { pubkey } = useWallet();
-  const { agents, bumpStats } = useAgents();
+  const [dispatchStep, setDispatchStep] = useState(0);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { pubkey, balance, spend } = useWallet();
+  const { agents, bumpStats, addActivity } = useAgents();
 
-  const filtered = filterStatus === "all"
-    ? tasks
-    : tasks.filter(t => t.status === filterStatus);
+  // Sync filter with ?filter= in the URL so the wallet menu can deep-link here.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const f = searchParams.get("filter");
+    if (f) setFilterStatus(f);
+  }, [searchParams]);
+
+  const myPoster = pubkey ?? "";
+  const filtered =
+    filterStatus === "all"  ? tasks :
+    filterStatus === "mine" ? tasks.filter(t => t.poster === myPoster && myPoster !== "") :
+    filterStatus === "my-disputes" ? tasks.filter(t => t.poster === myPoster && myPoster !== "" && t.status === "disputed") :
+    tasks.filter(t => t.status === filterStatus);
 
   function postTask(e: React.FormEvent) {
     e.preventDefault();
+    const budget = Number(form.budget);
+
+    // Escrow lock: the budget comes out of the wallet balance at posting time,
+    // exactly like the contract's post_task locks funds.
+    if (!spend(budget)) {
+      setFormError(`Insufficient balance: this task needs ${budget} RIALO but you have ${balance}. Use the + button in the navbar (devnet faucet).`);
+      return;
+    }
+    setFormError(null);
+
     const newTask: Task = {
       id: Math.max(...tasks.map(t => t.id)) + 1,
       title: form.title,
       description: form.description,
       capability: form.capability,
-      budget: Number(form.budget),
+      budget,
       poster: form.poster || pubkey || "Anonymous",
       status: "open",
       createdAt: "just now",
     };
     setTasks(prev => [newTask, ...prev]);
+    addActivity(`Task #${newTask.id} "${newTask.title}" posted · ${budget} RIALO locked in escrow`, "new");
     setForm({ title:"", description:"", capability:"text-summary", budget:"", poster:"" });
     setShowForm(false);
   }
 
+  function openDispute(taskId: number) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    setTasks(prev => prev.map(t =>
+      t.id === taskId ? { ...t, status: "disputed" as TaskStatus } : t
+    ));
+    addActivity(`Dispute opened on Task #${taskId} "${task.title}"`, "failed");
+  }
+
+  // Live agents (real endpoints) are listed before seeded demo agents.
   function eligibleAgents(capability: string) {
-    return agents.filter(a => a.active && a.capabilities.includes(capability));
+    return agents
+      .filter(a => a.active && a.capabilities.includes(capability))
+      .sort((a, b) => Number(isLiveAgent(b)) - Number(isLiveAgent(a)));
+  }
+
+  const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+  // What the contract actually sends to the agent, shown in the task details
+  // panel as proof of the request that went out.
+  function payloadFor(agent: Agent, task: Task): string {
+    if (agent.endpoint.includes("api.mymemory.translated.net")) {
+      return `GET ?q=${task.description}&langpair=en|tr`;
+    }
+    if (agent.endpoint.includes("api.coingecko.com")) {
+      return "GET " + agent.endpoint.split("?")[1];
+    }
+    return JSON.stringify({ task: task.title, description: task.description });
   }
 
   // Dispatch the task to a specific agent's registered HTTP endpoint, mirroring
-  // the contract's native AFTER/CALL flow. Whatever endpoint was registered for
-  // that agent is the one that actually gets called — this isn't limited to
-  // one hardcoded capability.
+  // the contract's native AFTER/CALL flow. The step indicator walks through the
+  // same three phases the contract goes through: dispatch, response, escrow.
   async function dispatchToAgent(taskId: number, agent: Agent) {
     setPickerFor(null);
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+
     setDispatching(taskId);
+    setDispatchStep(1);
     setTasks(prev => prev.map(t =>
       t.id === taskId ? { ...t, status: "in-progress" as TaskStatus, assignedAgent: agent.name } : t
     ));
+    addActivity(`Task #${taskId} "${task.title}" picked up by ${agent.name}`, "in-progress");
+
+    await pause(700);
+    setDispatchStep(2);
+    const t0 = performance.now();
 
     try {
-      const task = tasks.find(t => t.id === taskId)!;
       const result = await callAgentEndpoint(agent, task);
+      const ms = Math.round(performance.now() - t0);
+      setDispatchStep(3);
+      await pause(900);
       setTasks(prev => prev.map(t =>
-        t.id === taskId ? { ...t, status: "completed" as TaskStatus, result } : t
+        t.id === taskId
+          ? { ...t, status: "completed" as TaskStatus, result, durationMs: ms, dispatchedTo: agent.endpoint, requestPayload: payloadFor(agent, task) }
+          : t
       ));
       bumpStats(agent.id);
+      addActivity(`Task #${taskId} "${task.title}" completed by ${agent.name} in ${ms}ms`, "completed");
     } catch (err) {
+      const ms = Math.round(performance.now() - t0);
       setTasks(prev => prev.map(t =>
-        t.id === taskId ? { ...t, status: "disputed" as TaskStatus, result: "Agent call failed: " + (err as Error).message } : t
+        t.id === taskId
+          ? { ...t, status: "disputed" as TaskStatus, result: "Agent call failed: " + (err as Error).message, durationMs: ms, dispatchedTo: agent.endpoint, requestPayload: payloadFor(agent, task) }
+          : t
       ));
+      addActivity(`Task #${taskId} agent call failed (${agent.name})`, "failed");
     } finally {
       setDispatching(null);
+      setDispatchStep(0);
     }
   }
 
@@ -237,6 +309,11 @@ export default function TasksPage() {
               />
             </div>
           </div>
+          {formError && (
+            <div className="bg-red-600/10 border border-red-600/20 rounded-xl px-4 py-3 text-sm text-red-300">
+              {formError}
+            </div>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="submit" className="px-5 py-2 bg-rialo-600 hover:bg-rialo-500 rounded-xl text-sm font-medium transition-all">
               Post Task
@@ -250,7 +327,7 @@ export default function TasksPage() {
 
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
-        {["all", "open", "in-progress", "completed", "disputed"].map(s => (
+        {["all", "mine", "open", "in-progress", "completed", "disputed"].map(s => (
           <button
             key={s}
             onClick={() => setFilterStatus(s)}
@@ -261,7 +338,7 @@ export default function TasksPage() {
                 : "bg-white/5 text-white/40 border border-white/10 hover:text-white"
             )}
           >
-            {s === "all" ? "All" : STATUS_CONFIG[s as TaskStatus]?.label ?? s}
+            {s === "all" ? "All" : s === "mine" ? "My Tasks" : STATUS_CONFIG[s as TaskStatus]?.label ?? s}
           </button>
         ))}
       </div>
@@ -303,6 +380,30 @@ export default function TasksPage() {
                 <span className="ml-auto flex items-center gap-1"><Clock className="w-3 h-3" />{task.createdAt}</span>
               </div>
 
+              {/* Dispatch flow indicator — mirrors the contract's AFTER/CALL phases */}
+              {isDispatching && (
+                <div className="flex items-center gap-2 text-xs flex-wrap bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3">
+                  {[
+                    { n: 1, label: "Contract dispatching", icon: Send },
+                    { n: 2, label: "Agent responding",     icon: Radio },
+                    { n: 3, label: "Escrow released",      icon: CheckCircle },
+                  ].map(({ n, label, icon: StepIcon }, i) => (
+                    <span key={n} className="flex items-center gap-2">
+                      {i > 0 && <span className="w-6 h-px bg-white/15" />}
+                      <span className={clsx(
+                        "flex items-center gap-1.5 px-2 py-1 rounded-lg font-medium transition-all",
+                        dispatchStep > n  ? "text-rialo-400" :
+                        dispatchStep === n ? "text-rialo-300 bg-rialo-600/15 step-active" :
+                        "text-white/25"
+                      )}>
+                        <StepIcon className="w-3.5 h-3.5" />
+                        {label}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Result */}
               {task.result && (
                 <div className={clsx(
@@ -312,7 +413,58 @@ export default function TasksPage() {
                     : "bg-rialo-600/10 border-rialo-600/20 text-rialo-300"
                 )}>
                   <Zap className="w-4 h-4 shrink-0 mt-0.5 opacity-60" />
-                  {task.result}
+                  <span className="min-w-0 break-words">
+                    {task.result}
+                    {task.durationMs !== undefined && (
+                      <span className="ml-2 text-xs opacity-60">· {task.durationMs}ms round-trip</span>
+                    )}
+                  </span>
+                </div>
+              )}
+
+              {/* Expandable dispatch details — the proof panel */}
+              {(task.dispatchedTo || task.requestPayload) && (
+                <div>
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={() => setExpandedId(e => e === task.id ? null : task.id)}
+                      className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-all"
+                    >
+                      <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expandedId === task.id && "rotate-180")} />
+                      Dispatch details
+                    </button>
+                    {task.status === "completed" && (
+                      <button
+                        onClick={() => openDispute(task.id)}
+                        className="flex items-center gap-1.5 text-xs text-white/30 hover:text-red-400 transition-all"
+                        title="Not happy with the result? Open a dispute — payment gets frozen until it's resolved."
+                      >
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        Open dispute
+                      </button>
+                    )}
+                  </div>
+
+                  {expandedId === task.id && (
+                    <div className="mt-3 grid gap-2 text-xs font-mono">
+                      <div className="bg-white/[0.04] rounded-lg px-3 py-2 flex gap-2 items-start">
+                        <span className="text-white/30 shrink-0">endpoint</span>
+                        <span className="text-white/60 break-all">{task.dispatchedTo}</span>
+                      </div>
+                      {task.requestPayload && (
+                        <div className="bg-white/[0.04] rounded-lg px-3 py-2 flex gap-2 items-start">
+                          <span className="text-white/30 shrink-0">request</span>
+                          <span className="text-white/60 break-all">{task.requestPayload}</span>
+                        </div>
+                      )}
+                      {task.durationMs !== undefined && (
+                        <div className="bg-white/[0.04] rounded-lg px-3 py-2 flex gap-2 items-start">
+                          <span className="text-white/30 shrink-0">duration</span>
+                          <span className="text-rialo-400">{task.durationMs}ms</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -329,7 +481,7 @@ export default function TasksPage() {
                   </button>
 
                   {pickerFor === task.id && (
-                    <div className="absolute z-30 mt-2 w-72 glass-strong rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
+                    <div className="absolute z-30 mt-2 w-80 glass-strong rounded-xl shadow-2xl shadow-black/50 overflow-hidden">
                       {eligibleAgents(task.capability).length === 0 ? (
                         <div className="px-4 py-3 text-xs text-white/40">
                           No active agents registered for &ldquo;{task.capability}&rdquo; yet. Register one on the Agents page.
@@ -341,8 +493,19 @@ export default function TasksPage() {
                             onClick={() => dispatchToAgent(task.id, agent)}
                             className="w-full text-left px-4 py-3 text-sm hover:bg-rialo-600/10 transition-all border-b border-white/5 last:border-0"
                           >
-                            <div className="font-medium">{agent.name}</div>
-                            <div className="text-xs text-white/30 font-mono truncate">{agent.endpoint}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{agent.name}</span>
+                              {isLiveAgent(agent) ? (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rialo-600/15 text-rialo-400 text-[10px] font-medium">
+                                  <span className="w-1 h-1 rounded-full bg-rialo-400 animate-pulse" /> live endpoint
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-full bg-white/[0.06] text-white/30 text-[10px] font-medium">
+                                  demo · no live endpoint
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-xs text-white/30 font-mono truncate mt-0.5">{agent.endpoint}</div>
                           </button>
                         ))
                       )}
@@ -354,8 +517,34 @@ export default function TasksPage() {
             </div>
           );
         })}
+
+        {/* Empty state */}
+        {filtered.length === 0 && (
+          <div className="glass rounded-2xl py-14 text-center space-y-3">
+            <ClipboardList className="w-8 h-8 text-white/15 mx-auto" />
+            <p className="text-sm text-white/40">
+              {filterStatus === "my-disputes" ? "No disputes on your tasks. That's a good thing." :
+               filterStatus === "mine" && !pubkey ? "Connect your wallet to see your tasks." :
+               "No tasks match this filter."}
+            </p>
+            <button
+              onClick={() => { setFilterStatus("all"); setShowForm(true); }}
+              className="text-xs text-rialo-400 hover:text-rialo-300 transition-all"
+            >
+              Post a new task →
+            </button>
+          </div>
+        )}
       </div>
 
     </div>
+  );
+}
+
+export default function TasksPage() {
+  return (
+    <Suspense fallback={null}>
+      <TasksPageInner />
+    </Suspense>
   );
 }

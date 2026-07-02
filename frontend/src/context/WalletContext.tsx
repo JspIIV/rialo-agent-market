@@ -6,10 +6,13 @@ type WalletState = {
   connecting: boolean;
   hasProvider: boolean;
   modalOpen: boolean;
+  balance: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   setManualPubkey: (key: string) => void;
   closeModal: () => void;
+  topUp: () => void;
+  spend: (amount: number) => boolean;
 };
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -19,6 +22,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [connecting, setConnecting] = useState(false);
   const [hasProvider, setHasProvider] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  // Devnet demo balance. On mainnet this would be read from the chain.
+  const [balance, setBalance] = useState(1000);
+  const [faucetCooldown, setFaucetCooldown] = useState(0);
+
+  // Real faucets rate-limit requests; mirror that with a 60s cooldown.
+  const topUp = useCallback(() => {
+    if (faucetCooldown > 0) return;
+    setBalance(b => b + 500);
+    setFaucetCooldown(60);
+    const timer = setInterval(() => {
+      setFaucetCooldown(c => {
+        if (c <= 1) { clearInterval(timer); return 0; }
+        return c - 1;
+      });
+    }, 1000);
+  }, [faucetCooldown]);
+
+  // Locks funds for a task budget. Returns false if the balance can't cover it.
+  const spend = useCallback((amount: number) => {
+    if (balance < amount) return false;
+    setBalance(b => b - amount);
+    return true;
+  }, [balance]);
 
   useEffect(() => {
     setHasProvider(typeof window !== "undefined" && !!(window as any).solana?.isPhantom);
@@ -60,7 +86,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <WalletContext.Provider value={{ pubkey, connecting, hasProvider, modalOpen, connect, disconnect, setManualPubkey, closeModal: () => setModalOpen(false) }}>
+    <WalletContext.Provider value={{ pubkey, connecting, hasProvider, modalOpen, balance, connect, disconnect, setManualPubkey, closeModal: () => setModalOpen(false), topUp, spend }}>
       {children}
     </WalletContext.Provider>
   );

@@ -1,8 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Bot, ClipboardList, LayoutDashboard, Zap, Wallet, LogOut } from "lucide-react";
+import { Bot, ClipboardList, LayoutDashboard, Zap, Wallet, LogOut, ChevronDown, AlertCircle } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 
 const links = [
@@ -17,7 +18,14 @@ function shorten(pubkey: string) {
 
 export default function Navbar() {
   const path = usePathname();
-  const { pubkey, connecting, connect, disconnect } = useWallet();
+  const { pubkey, connecting, connect, disconnect, balance, topUp } = useWallet();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const menuItems = [
+    { href: "/agents?filter=mine",       label: "My Agents",   icon: Bot },
+    { href: "/tasks?filter=mine",        label: "My Tasks",    icon: ClipboardList },
+    { href: "/tasks?filter=my-disputes", label: "My Disputes", icon: AlertCircle },
+  ];
 
   return (
     <nav className="border-b border-white/10 bg-[#0a0f0d]/80 backdrop-blur-md sticky top-0 z-50">
@@ -46,22 +54,65 @@ export default function Navbar() {
               )}
             >
               <Icon className="w-4 h-4" />
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
         </div>
 
         {/* Wallet connect */}
         {pubkey ? (
-          <button
-            onClick={disconnect}
-            title="Disconnect"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rialo-600/40 bg-rialo-600/5 text-rialo-400 text-sm hover:bg-red-600/10 hover:border-red-600/40 hover:text-red-400 transition-all group shrink-0"
-          >
-            <span className="w-2 h-2 rounded-full bg-rialo-400 animate-pulse group-hover:hidden" />
-            <LogOut className="w-3.5 h-3.5 hidden group-hover:block" />
-            {shorten(pubkey)}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Balance + devnet faucet */}
+            <div className="hidden sm:flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 text-sm">
+              <span className="font-medium">{balance.toLocaleString()}</span>
+              <span className="text-white/40 text-xs">RIALO</span>
+              <button
+                onClick={topUp}
+                title="Devnet faucet: +500 RIALO"
+                className="ml-1 w-6 h-6 rounded-md bg-rialo-600/20 hover:bg-rialo-600/40 text-rialo-400 text-sm font-bold transition-all leading-none"
+              >
+                +
+              </button>
+            </div>
+            {/* Wallet menu */}
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(v => !v)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-rialo-600/40 bg-rialo-600/5 text-rialo-400 text-sm hover:bg-rialo-600/10 transition-all"
+              >
+                <span className="w-2 h-2 rounded-full bg-rialo-400 animate-pulse" />
+                {shorten(pubkey)}
+                <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", menuOpen && "rotate-180")} />
+              </button>
+
+              {menuOpen && (
+                <>
+                  {/* Click-away backdrop */}
+                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-52 glass-strong rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                    {menuItems.map(({ href, label, icon: Icon }) => (
+                      <Link
+                        key={href}
+                        href={href}
+                        onClick={() => setMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all border-b border-white/5"
+                      >
+                        <Icon className="w-4 h-4 text-rialo-400" />
+                        {label}
+                      </Link>
+                    ))}
+                    <button
+                      onClick={() => { setMenuOpen(false); disconnect(); }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-white/50 hover:text-red-400 hover:bg-red-600/10 transition-all"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Disconnect
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         ) : (
           <button
             onClick={connect}

@@ -1,8 +1,29 @@
 "use client";
-import { Bot, ClipboardCheck, TrendingUp, Zap, ArrowRight, Globe, Shield, Clock, CheckCircle2, Star } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, ClipboardCheck, TrendingUp, Zap, ArrowRight, Globe, Shield, Radio, CheckCircle2, Star, Wallet, X, HelpCircle, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import clsx from "clsx";
-import { useAgents } from "@/context/AgentsContext";
+import { useAgents, isLiveAgent, timeAgo } from "@/context/AgentsContext";
+import { useWallet } from "@/context/WalletContext";
+
+const FAQ = [
+  {
+    q: "How does payment work?",
+    a: "When you post a task, the budget is locked in escrow. The contract dispatches the task to the agent's HTTP endpoint directly. The moment the agent responds, the escrow releases to the agent. No manual approval, no middleman holding the money.",
+  },
+  {
+    q: "What if an agent fails or gives a bad result?",
+    a: "If the HTTP call fails, the task is marked disputed automatically and payment stays frozen. If the call succeeds but you're not happy with the result, you can open a dispute yourself from the task card. Disputed funds don't move until the dispute is resolved.",
+  },
+  {
+    q: "What is a dispute and how is it resolved?",
+    a: "A dispute freezes the escrowed payment for a task. In the current devnet build the poster raises it manually; on mainnet the plan is a resolution flow where disputes affect the agent's on-chain reputation, so consistently bad agents price themselves out of the market.",
+  },
+  {
+    q: "Are the agents here real?",
+    a: "Some are. Agents marked with a green 'live' badge point at real HTTP endpoints and the dispatch you see is a real network round-trip (check the dispatch details on a completed task). Agents marked 'demo' are seeded example data to show the marketplace layout.",
+  },
+];
 
 const AVATAR_RAMPS = [
   "from-emerald-500/40 to-emerald-900/40 text-emerald-300",
@@ -19,13 +40,6 @@ function initials(name: string) {
 function avatarRamp(id: number) {
   return AVATAR_RAMPS[id % AVATAR_RAMPS.length];
 }
-
-const stats = [
-  { label: "Active Agents",       value: "12",    icon: Bot },
-  { label: "Tasks Completed",     value: "47",    icon: ClipboardCheck },
-  { label: "Total Volume",        value: "2,340", icon: TrendingUp },
-  { label: "Avg Response Time",   value: "1.2s",  icon: Clock },
-];
 
 const features = [
   {
@@ -50,23 +64,37 @@ const features = [
   },
 ];
 
-const recentActivity = [
-  { text: 'Task #45 "Summarise Q2 report" completed by GPT-Summariser',  status: "completed",   time: "2m ago" },
-  { text: "CodeReview-Pro joined the marketplace (code-review)",          status: "new",         time: "5m ago" },
-  { text: 'Task #44 "Translate EN to TR" picked up by LinguaBot',         status: "in-progress", time: "8m ago" },
-  { text: 'Task #43 "Generate unit tests" completed by DevAssist-v2',     status: "completed",   time: "12m ago" },
-];
-
 const statusColor: Record<string, string> = {
   completed:   "bg-rialo-600/20 text-rialo-400",
   "in-progress": "bg-amber-500/20 text-amber-400",
   new:         "bg-sky-500/20 text-sky-400",
+  failed:      "bg-red-600/20 text-red-400",
 };
 
 export default function Home() {
-  const { agents } = useAgents();
+  const { agents, activity } = useAgents();
+  const { pubkey } = useWallet();
   const ranked = [...agents].sort((a, b) => b.reputation - a.reputation);
   const featured = ranked[0];
+
+  // Quick-start banner for first-time visitors; dismissal is remembered.
+  const [showQuickStart, setShowQuickStart] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  useEffect(() => {
+    setShowQuickStart(localStorage.getItem("qs_dismissed") !== "1");
+  }, []);
+  function dismissQuickStart() {
+    setShowQuickStart(false);
+    localStorage.setItem("qs_dismissed", "1");
+  }
+
+  // Real numbers derived from marketplace state — nothing hardcoded.
+  const stats = [
+    { label: "Active Agents",   value: String(agents.filter(a => a.active).length),                          icon: Bot },
+    { label: "Tasks Completed", value: String(agents.reduce((s, a) => s + a.tasksCompleted, 0)),             icon: ClipboardCheck },
+    { label: "Volume (RIALO)",  value: agents.reduce((s, a) => s + a.tasksCompleted * a.price, 0).toLocaleString(), icon: TrendingUp },
+    { label: "Live Endpoints",  value: String(agents.filter(isLiveAgent).length),                            icon: Radio },
+  ];
 
   return (
     <div className="space-y-14">
@@ -109,23 +137,26 @@ export default function Home() {
         <div className="relative hidden lg:block">
           <div className="float-slow glass-strong gradient-border rounded-2xl p-5 space-y-4 shadow-2xl shadow-black/40">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-mono text-white/40">task_dispatch.log</span>
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                <Zap className="w-4 h-4 text-rialo-400" />
+                Task Lifecycle on Rialo
+              </span>
               <span className="flex items-center gap-1.5 text-[11px] text-rialo-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-rialo-400 animate-pulse" /> live
               </span>
             </div>
 
             <div className="space-y-3 text-sm font-mono">
-              <div className="flex items-center gap-2 text-white/40">
+              <div className="log-line flex items-center gap-2 text-white/40" style={{ animationDelay: "0.3s" }}>
                 <span className="text-rialo-400">$</span> contract.assign_task(#46, TranslateBot)
               </div>
-              <div className="flex items-center gap-2 text-white/30 pl-4">
+              <div className="log-line flex items-center gap-2 text-white/30 pl-4" style={{ animationDelay: "1.1s" }}>
                 <Zap className="w-3.5 h-3.5 text-rialo-400" /> AFTER http_post → agent endpoint
               </div>
-              <div className="flex items-center gap-2 text-white/30 pl-4">
+              <div className="log-line flex items-center gap-2 text-white/30 pl-4" style={{ animationDelay: "1.9s" }}>
                 <CheckCircle2 className="w-3.5 h-3.5 text-rialo-400" /> response received · 312ms
               </div>
-              <div className="flex items-center gap-2 text-rialo-300 pl-4">
+              <div className="log-line flex items-center gap-2 text-rialo-300 pl-4" style={{ animationDelay: "2.7s" }}>
                 <CheckCircle2 className="w-3.5 h-3.5" /> escrow released · 10 RIALO
               </div>
             </div>
@@ -146,6 +177,42 @@ export default function Home() {
           <div className="absolute -inset-8 -z-10 bg-rialo-600/10 blur-3xl rounded-full" />
         </div>
       </section>
+
+      {/* Quick start for first-time visitors */}
+      {showQuickStart && (
+        <section className="glass rounded-2xl p-5 relative">
+          <button
+            onClick={dismissQuickStart}
+            className="absolute top-4 right-4 text-white/30 hover:text-white transition-all"
+            aria-label="Dismiss quick start"
+          >
+            <X className="w-4 h-4" />
+          </button>
+          <div className="text-sm font-semibold mb-4 flex items-center gap-2">
+            <Zap className="w-4 h-4 text-rialo-400" /> New here? Three steps to your first task
+          </div>
+          <div className="grid sm:grid-cols-3 gap-3">
+            {[
+              { n: 1, icon: Wallet,         title: "Connect your wallet", desc: "Top right. No extension? Enter a devnet pubkey manually.", done: !!pubkey },
+              { n: 2, icon: ClipboardCheck, title: "Post a task",         desc: "Set a budget — it locks in escrow until the agent delivers." },
+              { n: 3, icon: Bot,            title: "Assign a live agent", desc: "Pick one with the green live badge and watch the real dispatch." },
+            ].map(({ n, icon: StepIcon, title, desc, done }) => (
+              <div key={n} className="flex gap-3 bg-white/[0.03] rounded-xl p-3.5">
+                <div className={clsx(
+                  "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                  done ? "bg-rialo-600/30 text-rialo-400" : "bg-white/[0.06] text-white/40"
+                )}>
+                  {done ? <CheckCircle2 className="w-4 h-4" /> : <StepIcon className="w-4 h-4" />}
+                </div>
+                <div>
+                  <div className="text-sm font-medium">{n}. {title}</div>
+                  <div className="text-xs text-white/40 mt-0.5">{desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Stats */}
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -301,19 +368,45 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Activity feed */}
+      {/* Activity feed — reflects real actions taken in this session */}
       <section className="space-y-4">
-        <h2 className="text-2xl font-bold">Live Activity</h2>
+        <div className="flex items-end justify-between">
+          <h2 className="text-2xl font-bold">Live Activity</h2>
+          <span className="text-xs text-white/30 hidden sm:block">Updates as you assign tasks and register agents</span>
+        </div>
         <div className="glass rounded-2xl divide-y divide-white/5 overflow-hidden">
-          {recentActivity.map((item, i) => (
-            <div key={i} className="flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-all">
+          {activity.map(item => (
+            <div key={item.id} className="flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-all">
               <span className="text-sm text-white/60">{item.text}</span>
               <div className="flex items-center gap-3 shrink-0 ml-4">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor[item.status]}`}>
                   {item.status}
                 </span>
-                <span className="text-xs text-white/30">{item.time}</span>
+                <span className="text-xs text-white/30" suppressHydrationWarning>{timeAgo(item.ts)}</span>
               </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ — trust & transparency */}
+      <section className="space-y-4">
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <HelpCircle className="w-5 h-5 text-rialo-400" /> How it stays fair
+        </h2>
+        <div className="glass rounded-2xl divide-y divide-white/5 overflow-hidden">
+          {FAQ.map((item, i) => (
+            <div key={i}>
+              <button
+                onClick={() => setOpenFaq(f => f === i ? null : i)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left text-sm font-medium hover:bg-white/[0.02] transition-all"
+              >
+                {item.q}
+                <ChevronDown className={clsx("w-4 h-4 text-white/30 transition-transform shrink-0 ml-4", openFaq === i && "rotate-180")} />
+              </button>
+              {openFaq === i && (
+                <p className="px-5 pb-4 text-sm text-white/40 leading-relaxed">{item.a}</p>
+              )}
             </div>
           ))}
         </div>
