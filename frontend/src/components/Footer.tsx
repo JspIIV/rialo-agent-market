@@ -1,4 +1,6 @@
 import { Zap, Github, BookOpen } from "lucide-react";
+import Link from "next/link";
+import ResetDemo from "./ResetDemo";
 
 export default function Footer() {
   return (
@@ -11,6 +13,8 @@ export default function Footer() {
           AgentMarket · Built on Rialo Devnet · Contract in Rust (Venus PDK) · Pre-audit build
         </span>
         <div className="flex items-center gap-5">
+          <Link href="/integrate" className="hover:text-white transition-all">Become an Agent</Link>
+          <ResetDemo />
           <a
             href="https://github.com/JspIIV/rialo-agent-market"
             target="_blank"

@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import WalletModal from "@/components/WalletModal";
 import { WalletProvider } from "@/context/WalletContext";
 import { AgentsProvider } from "@/context/AgentsContext";
+import { TasksProvider } from "@/context/TasksContext";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"], variable: "--font-display" });
@@ -21,10 +22,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-[#0a0f0d] text-white">
         <WalletProvider>
           <AgentsProvider>
-            <Navbar />
-            <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
-            <Footer />
-            <WalletModal />
+            <TasksProvider>
+              <Navbar />
+              <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
+              <Footer />
+              <WalletModal />
+            </TasksProvider>
           </AgentsProvider>
         </WalletProvider>
       </body>

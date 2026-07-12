@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bot, ClipboardList, LayoutDashboard, Zap, Wallet, LogOut, ChevronDown, AlertCircle } from "lucide-react";
+import { Bot, ClipboardList, LayoutDashboard, Zap, Wallet, LogOut, ChevronDown, AlertCircle, Search, X } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
+import { useTasks } from "@/context/TasksContext";
 
 const links = [
   { href: "/",        label: "Dashboard",  icon: LayoutDashboard },
@@ -18,8 +19,17 @@ function shorten(pubkey: string) {
 
 export default function Navbar() {
   const path = usePathname();
-  const { pubkey, connecting, connect, disconnect, balance, topUp } = useWallet();
+  const router = useRouter();
+  const { pubkey, connecting, connect, disconnect, balance, topUp, faucetCooldown } = useWallet();
+  const { search, setSearch } = useTasks();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  function onSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // Search filters both Agents and Tasks; if we're on the dashboard, jump to
+    // Agents so the user sees results.
+    if (path !== "/agents" && path !== "/tasks") router.push("/agents");
+  }
 
   const menuItems = [
     { href: "/agents?filter=mine",       label: "My Agents",   icon: Bot },
@@ -59,6 +69,22 @@ export default function Navbar() {
           ))}
         </div>
 
+        {/* Search */}
+        <form onSubmit={onSearchSubmit} className="hidden lg:flex items-center gap-2 flex-1 max-w-xs bg-white/[0.03] border border-white/10 rounded-lg px-3 py-2 focus-within:border-rialo-600/50 transition-all">
+          <Search className="w-4 h-4 text-white/30 shrink-0" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search agents & tasks..."
+            className="bg-transparent text-sm outline-none w-full placeholder:text-white/30"
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch("")} className="text-white/30 hover:text-white transition-all">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </form>
+
         {/* Wallet connect */}
         {pubkey ? (
           <div className="flex items-center gap-2 shrink-0">
@@ -68,10 +94,16 @@ export default function Navbar() {
               <span className="text-white/40 text-xs">RIALO</span>
               <button
                 onClick={topUp}
-                title="Devnet faucet: +500 RIALO"
-                className="ml-1 w-6 h-6 rounded-md bg-rialo-600/20 hover:bg-rialo-600/40 text-rialo-400 text-sm font-bold transition-all leading-none"
+                disabled={faucetCooldown > 0}
+                title={faucetCooldown > 0 ? `Faucet on cooldown: ${faucetCooldown}s` : "Devnet faucet: +500 RIALO"}
+                className={clsx(
+                  "ml-1 h-6 rounded-md text-xs font-bold transition-all leading-none flex items-center justify-center",
+                  faucetCooldown > 0
+                    ? "w-9 bg-white/[0.04] text-white/30 cursor-not-allowed"
+                    : "w-6 bg-rialo-600/20 hover:bg-rialo-600/40 text-rialo-400 text-sm"
+                )}
               >
-                +
+                {faucetCooldown > 0 ? `${faucetCooldown}s` : "+"}
               </button>
             </div>
             {/* Wallet menu */}

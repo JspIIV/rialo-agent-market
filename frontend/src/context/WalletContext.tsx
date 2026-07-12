@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { usePersistentState } from "@/lib/usePersistentState";
 
 type WalletState = {
   pubkey: string | null;
@@ -7,12 +8,14 @@ type WalletState = {
   hasProvider: boolean;
   modalOpen: boolean;
   balance: number;
+  faucetCooldown: number;
   connect: () => Promise<void>;
   disconnect: () => void;
   setManualPubkey: (key: string) => void;
   closeModal: () => void;
   topUp: () => void;
   spend: (amount: number) => boolean;
+  refund: (amount: number) => void;
 };
 
 const WalletContext = createContext<WalletState | null>(null);
@@ -23,7 +26,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [hasProvider, setHasProvider] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   // Devnet demo balance. On mainnet this would be read from the chain.
-  const [balance, setBalance] = useState(1000);
+  const [balance, setBalance] = usePersistentState<number>("am_balance", 1000);
   const [faucetCooldown, setFaucetCooldown] = useState(0);
 
   // Real faucets rate-limit requests; mirror that with a 60s cooldown.
@@ -37,14 +40,19 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         return c - 1;
       });
     }, 1000);
-  }, [faucetCooldown]);
+  }, [faucetCooldown, setBalance]);
 
   // Locks funds for a task budget. Returns false if the balance can't cover it.
   const spend = useCallback((amount: number) => {
     if (balance < amount) return false;
     setBalance(b => b - amount);
     return true;
-  }, [balance]);
+  }, [balance, setBalance]);
+
+  // Returns escrowed funds to the wallet (task expired or cancelled).
+  const refund = useCallback((amount: number) => {
+    setBalance(b => b + amount);
+  }, [setBalance]);
 
   useEffect(() => {
     setHasProvider(typeof window !== "undefined" && !!(window as any).solana?.isPhantom);
@@ -86,7 +94,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <WalletContext.Provider value={{ pubkey, connecting, hasProvider, modalOpen, balance, connect, disconnect, setManualPubkey, closeModal: () => setModalOpen(false), topUp, spend }}>
+    <WalletContext.Provider value={{ pubkey, connecting, hasProvider, modalOpen, balance, faucetCooldown, connect, disconnect, setManualPubkey, closeModal: () => setModalOpen(false), topUp, spend, refund }}>
       {children}
     </WalletContext.Provider>
   );

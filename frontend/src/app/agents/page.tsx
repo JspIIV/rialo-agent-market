@@ -1,9 +1,10 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Plus, Star, XCircle, Zap, X, Radio, BadgeCheck } from "lucide-react";
+import { Bot, Plus, Star, XCircle, Zap, X, Radio, BadgeCheck, Gauge, TrendingUp } from "lucide-react";
 import clsx from "clsx";
-import { useAgents, Agent, isLiveAgent } from "@/context/AgentsContext";
+import { useAgents, Agent, isLiveAgent, avgResponseMs, successRate, timeAgo } from "@/context/AgentsContext";
+import { useTasks } from "@/context/TasksContext";
 import { useWallet } from "@/context/WalletContext";
 
 // An agent earns the verified badge after proving itself with enough
@@ -38,6 +39,7 @@ function avatarRamp(id: number) {
 
 function AgentsPageInner() {
   const { agents, addAgent } = useAgents();
+  const { search } = useTasks();
   const { pubkey } = useWallet();
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter]   = useState("all");
@@ -73,11 +75,17 @@ function AgentsPageInner() {
     setPing({ state: "idle" });
   }
 
+  // Keep the open modal in sync with live stat changes (reputation, history).
+  const sel = selected ? agents.find(a => a.id === selected.id) ?? selected : null;
+
+  const q = search.trim().toLowerCase();
   const filtered = (
     filter === "all"  ? agents :
     filter === "mine" ? agents.filter(a => pubkey !== null && a.owner === pubkey) :
     agents.filter(a => a.capabilities.includes(filter))
-  ).slice().sort((a, b) =>
+  )
+  .filter(a => q === "" ? true : a.name.toLowerCase().includes(q) || a.capabilities.some(c => c.includes(q)))
+  .slice().sort((a, b) =>
     sortKey === "reputation" ? b.reputation - a.reputation :
     sortKey === "price"      ? a.price - b.price :
     b.tasksCompleted - a.tasksCompleted
@@ -289,35 +297,35 @@ function AgentsPageInner() {
       )}
 
       {/* Agent detail modal */}
-      {selected && (
+      {sel && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4 py-8 overflow-y-auto"
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full max-w-md glass-strong rounded-2xl p-6 space-y-5 shadow-2xl"
+            className="w-full max-w-md glass-strong rounded-2xl p-6 space-y-5 shadow-2xl my-auto"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className={clsx("w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center font-bold text-base shrink-0 border border-white/10", avatarRamp(selected.id))}>
-                  {initials(selected.name) || <Bot className="w-5 h-5" />}
+                <div className={clsx("w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center font-bold text-base shrink-0 border border-white/10", avatarRamp(sel.id))}>
+                  {initials(sel.name) || <Bot className="w-5 h-5" />}
                 </div>
                 <div>
-                  <div className="font-semibold text-lg flex items-center gap-2">
-                    {selected.name}
-                    {isVerified(selected) && (
+                  <div className="font-semibold text-lg flex items-center gap-2 flex-wrap">
+                    {sel.name}
+                    {isVerified(sel) && (
                       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 text-[10px] font-medium">
-                        <BadgeCheck className="w-3 h-3" /> Verified · {selected.tasksCompleted}+ tasks
+                        <BadgeCheck className="w-3 h-3" /> Verified
                       </span>
                     )}
-                    {isLiveAgent(selected) && (
+                    {isLiveAgent(sel) && (
                       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rialo-600/15 text-rialo-400 text-[10px] font-medium">
                         <Radio className="w-2.5 h-2.5" /> live
                       </span>
                     )}
                   </div>
-                  <div className="text-xs text-white/30 font-mono">{selected.owner}</div>
+                  <div className="text-xs text-white/30 font-mono">{sel.owner}</div>
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="text-white/30 hover:text-white transition-all">
@@ -326,50 +334,77 @@ function AgentsPageInner() {
             </div>
 
             <div className="flex gap-2 flex-wrap">
-              {selected.capabilities.map(cap => (
-                <span key={cap} className="px-2 py-0.5 bg-rialo-600/10 border border-rialo-600/20 text-rialo-400 rounded-md text-xs font-medium">
-                  {cap}
-                </span>
+              {sel.capabilities.map(cap => (
+                <span key={cap} className="px-2 py-0.5 bg-rialo-600/10 border border-rialo-600/20 text-rialo-400 rounded-md text-xs font-medium">{cap}</span>
               ))}
             </div>
 
+            {/* Primary stats */}
             <div className="grid grid-cols-3 gap-3 text-center">
               <div className="bg-white/[0.04] rounded-xl p-3">
-                <div className="text-lg font-bold text-rialo-400 font-display">{selected.price}</div>
+                <div className="text-lg font-bold text-rialo-400 font-display">{sel.price}</div>
                 <div className="text-xs text-white/30">RIALO/task</div>
               </div>
               <div className="bg-white/[0.04] rounded-xl p-3">
-                <div className="text-lg font-bold font-display">{selected.tasksCompleted}</div>
+                <div className="text-lg font-bold font-display">{sel.tasksCompleted}</div>
                 <div className="text-xs text-white/30">completed</div>
               </div>
               <div className="bg-white/[0.04] rounded-xl p-3">
                 <div className="flex items-center justify-center gap-1 text-lg font-bold text-yellow-400 font-display">
-                  <Star className="w-3.5 h-3.5 fill-yellow-400" />{selected.reputation}
+                  <Star className="w-3.5 h-3.5 fill-yellow-400" />{sel.reputation}
                 </div>
                 <div className="text-xs text-white/30">reputation</div>
               </div>
             </div>
 
+            {/* Performance metrics */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/[0.04] rounded-xl p-3 flex items-center gap-2.5">
+                <Gauge className="w-4 h-4 text-rialo-400 shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold">{avgResponseMs(sel) !== null ? `${avgResponseMs(sel)}ms` : "—"}</div>
+                  <div className="text-[11px] text-white/30">avg response</div>
+                </div>
+              </div>
+              <div className="bg-white/[0.04] rounded-xl p-3 flex items-center gap-2.5">
+                <TrendingUp className="w-4 h-4 text-rialo-400 shrink-0" />
+                <div>
+                  <div className="text-sm font-semibold">{successRate(sel) !== null ? `${successRate(sel)}%` : "—"}</div>
+                  <div className="text-[11px] text-white/30">success rate</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Job history */}
+            {sel.history.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs text-white/40 font-medium">Recent jobs</div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {sel.history.slice(0, 6).map((job, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs bg-white/[0.03] rounded-lg px-3 py-2">
+                      {job.success
+                        ? <span className="w-1.5 h-1.5 rounded-full bg-rialo-400 shrink-0" />
+                        : <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />}
+                      <span className="truncate text-white/60">{job.taskTitle}</span>
+                      <span className="ml-auto text-white/30 shrink-0">{job.ms}ms · {timeAgo(job.ts)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 text-xs text-white/40 bg-white/[0.04] rounded-lg px-3 py-2.5 font-mono break-all">
-              <Zap className="w-3 h-3 shrink-0 text-rialo-400" />
-              {selected.endpoint}
+              <Zap className="w-3 h-3 shrink-0 text-rialo-400" />{sel.endpoint}
             </div>
 
             <div className="space-y-2">
-              <button
-                onClick={() => pingAgent(selected)}
-                disabled={ping.state === "loading"}
-                className="w-full px-4 py-2.5 bg-rialo-600 hover:bg-rialo-500 text-black rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
-              >
+              <button onClick={() => pingAgent(sel)} disabled={ping.state === "loading"}
+                className="w-full px-4 py-2.5 bg-rialo-600 hover:bg-rialo-500 text-black rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
                 {ping.state === "loading" ? "Pinging endpoint..." : "Ping this agent"}
               </button>
               {ping.state === "done" && ping.text && (
-                <div className={clsx(
-                  "border rounded-xl px-4 py-2.5 text-xs font-mono text-center",
-                  ping.text.startsWith("Reachable")
-                    ? "bg-rialo-600/10 border-rialo-600/20 text-rialo-300"
-                    : "bg-red-600/10 border-red-600/20 text-red-300"
-                )}>
+                <div className={clsx("border rounded-xl px-4 py-2.5 text-xs font-mono text-center",
+                  ping.text.startsWith("Reachable") ? "bg-rialo-600/10 border-rialo-600/20 text-rialo-300" : "bg-red-600/10 border-red-600/20 text-red-300")}>
                   {ping.text}
                 </div>
               )}
