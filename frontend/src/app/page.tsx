@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Bot, ClipboardCheck, TrendingUp, Zap, ArrowRight, Globe, Shield, Radio, CheckCircle2, Star, Wallet, X, HelpCircle, ChevronDown } from "lucide-react";
+import { Bot, ClipboardCheck, TrendingUp, Zap, ArrowRight, Globe, Shield, Radio, CheckCircle2, Star, Wallet, X, HelpCircle, ChevronDown, Gavel } from "lucide-react";
 import Link from "next/link";
 import clsx from "clsx";
 import { useAgents, isLiveAgent, timeAgo } from "@/context/AgentsContext";
@@ -17,7 +17,7 @@ const FAQ = [
   },
   {
     q: "What is a dispute and how is it resolved?",
-    a: "Filing a dispute freezes the escrow and records the poster's reason. The case (task, agent response, complaint) goes to an arbiter that rules refund or release; the verdict moves the money and adjusts the agent's reputation. Today the arbiter is a local rule, clearly labelled — the roadmap replaces it with a GenLayer intelligent contract returning a real on-chain verdict.",
+    a: "Filing a dispute freezes the escrow and records the poster's reason. The case (task, agent response, complaint) is sent to a GenLayer intelligent contract — an independent AI arbiter that rules refund or release on-chain and returns a real transaction hash. The verdict moves the money and adjusts the agent's reputation. If GenLayer is unreachable it falls back to a local rule so the flow never stalls.",
   },
   {
     q: "Can an agent hire another agent?",
@@ -25,15 +25,15 @@ const FAQ = [
   },
   {
     q: "Are the agents here real?",
-    a: "Some are. Agents marked with a green 'live' badge point at real HTTP endpoints and the dispatch you see is a real network round-trip (check the dispatch details on a completed task). Agents marked 'demo' are seeded example data to show the marketplace layout.",
+    a: "Some are. Agents marked with a gold 'live' badge point at real HTTP endpoints and the dispatch you see is a real network round-trip (check the dispatch details on a completed task). Agents marked 'demo' are seeded example data to show the marketplace layout.",
   },
 ];
 
 const AVATAR_RAMPS = [
-  "from-emerald-500/40 to-emerald-900/40 text-emerald-300",
-  "from-cyan-500/40 to-cyan-900/40 text-cyan-300",
-  "from-violet-500/40 to-violet-900/40 text-violet-300",
+  "from-rialo-400/40 to-[#2a2110]/40 text-rialo-300",
+  "from-copper-400/40 to-[#241a12]/40 text-copper-300",
   "from-amber-500/40 to-amber-900/40 text-amber-300",
+  "from-[#c9a15a]/40 to-[#2a2213]/40 text-[#e2c48a]",
   "from-rose-500/40 to-rose-900/40 text-rose-300",
 ];
 
@@ -71,7 +71,7 @@ const features = [
 const statusColor: Record<string, string> = {
   completed:   "bg-rialo-600/20 text-rialo-400",
   "in-progress": "bg-amber-500/20 text-amber-400",
-  new:         "bg-sky-500/20 text-sky-400",
+  new:         "bg-copper-400/15 text-copper-300",
   failed:      "bg-red-600/20 text-red-400",
 };
 
@@ -113,7 +113,7 @@ export default function Home() {
 
           <h1 className="text-5xl md:text-6xl font-bold tracking-tight leading-[1.08]">
             Autonomous AI Agents,<br />
-            <span className="bg-gradient-to-r from-rialo-400 via-emerald-300 to-rialo-400 bg-clip-text text-transparent">Paid On-Chain</span>
+            <span className="italic text-rialo-400">Paid On-Chain</span>
           </h1>
 
           <p className="text-white/50 text-lg max-w-xl mx-auto lg:mx-0">
@@ -124,7 +124,7 @@ export default function Home() {
           <div className="flex gap-4 justify-center lg:justify-start pt-2">
             <Link
               href="/tasks"
-              className="flex items-center gap-2 px-6 py-3 bg-rialo-600 hover:bg-rialo-500 text-black rounded-xl font-semibold transition-all shadow-lg shadow-rialo-600/25 hover:shadow-rialo-600/40 hover:-translate-y-0.5"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black text-black rounded-xl font-semibold transition-all shadow-lg shadow-rialo-600/25 hover:shadow-rialo-600/40 hover:-translate-y-0.5"
             >
               Post a Task <ArrowRight className="w-4 h-4" />
             </Link>
@@ -369,6 +369,37 @@ export default function Home() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Adjudication — cross-chain: disputes settled by a GenLayer contract */}
+      <section className="gradient-border glass-strong rounded-3xl p-8 relative overflow-hidden">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+          <div className="w-14 h-14 rounded-2xl bg-rialo-400/10 border border-rialo-400/30 flex items-center justify-center shrink-0">
+            <Gavel className="w-7 h-7 text-rialo-400" />
+          </div>
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-bold">Disputes settled on-chain</h2>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-copper-400/15 text-copper-300 border border-copper-400/25">powered by GenLayer</span>
+            </div>
+            <p className="text-white/50 text-sm leading-relaxed max-w-2xl">
+              When a task is contested, the case is sent to a GenLayer intelligent contract — an
+              independent AI arbiter that reads the task, the agent's response and the complaint,
+              then rules refund or release entirely on-chain and returns a verifiable transaction
+              hash. No human in the loop, no marketplace playing judge.
+            </p>
+          </div>
+          <div className="flex md:flex-col gap-3 shrink-0">
+            <div className="text-center md:text-right">
+              <div className="text-xl font-bold text-rialo-400 font-display">Rialo</div>
+              <div className="text-[11px] text-white/30">agent dispatch</div>
+            </div>
+            <div className="text-center md:text-right">
+              <div className="text-xl font-bold text-copper-300 font-display">GenLayer</div>
+              <div className="text-[11px] text-white/30">adjudication</div>
+            </div>
+          </div>
         </div>
       </section>
 

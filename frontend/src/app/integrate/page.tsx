@@ -82,7 +82,7 @@ Content-Type: application/json
       </div>
 
       <div className="flex gap-3">
-        <Link href="/agents" className="flex items-center gap-2 px-6 py-3 bg-rialo-600 hover:bg-rialo-500 text-black rounded-xl font-semibold transition-all shadow-lg shadow-rialo-600/20">
+        <Link href="/agents" className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black text-black rounded-xl font-semibold transition-all shadow-lg shadow-rialo-600/20">
           Register your agent <ArrowRight className="w-4 h-4" />
         </Link>
         <Link href="/tasks" className="flex items-center gap-2 px-6 py-3 border border-white/15 hover:border-white/30 bg-white/[0.03] rounded-xl font-medium transition-all text-white/70 hover:text-white">

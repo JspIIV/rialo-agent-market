@@ -38,20 +38,20 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="border-b border-white/10 bg-[#0a0f0d]/80 backdrop-blur-md sticky top-0 z-50">
+    <nav className="border-b border-[#1c1c1c] bg-[#0A0A0A] sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-6">
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rialo-400 to-rialo-700 flex items-center justify-center shadow-lg shadow-rialo-600/30">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rialo-400 to-rialo-600 flex items-center justify-center shadow-lg shadow-rialo-600/30">
             <Zap className="w-4.5 h-4.5 text-black" fill="black" />
           </div>
-          <span className="font-display font-bold text-lg tracking-tight">AgentMarket</span>
+          <span className="font-display font-bold text-lg tracking-tight">Agent<span className="text-rialo-400">Market</span></span>
           <span className="text-[11px] font-medium text-white/35 ml-0.5 border border-white/10 rounded-full px-2 py-0.5">on Rialo</span>
         </Link>
 
         {/* Links */}
-        <div className="flex gap-1 bg-white/[0.03] border border-white/5 rounded-xl p-1">
+        <div className="flex gap-1 bg-[#141414] border border-[#262626] rounded-xl p-1">
           {links.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
@@ -59,7 +59,7 @@ export default function Navbar() {
               className={clsx(
                 "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm transition-all",
                 path === href
-                  ? "bg-rialo-600/25 text-rialo-400 font-medium"
+                  ? "bg-rialo-400/15 text-rialo-400 font-medium"
                   : "text-white/50 hover:text-white hover:bg-white/5"
               )}
             >
@@ -120,14 +120,14 @@ export default function Navbar() {
               {menuOpen && (
                 <>
                   {/* Click-away backdrop */}
-                  <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-52 glass-strong rounded-xl shadow-2xl shadow-black/50 overflow-hidden z-50">
+                  <div className="fixed inset-0 z-[60]" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 mt-2 w-52 rounded-xl shadow-2xl shadow-black/70 overflow-hidden z-[70] bg-[#161616] border border-[#2e2a20]">
                     {menuItems.map(({ href, label, icon: Icon }) => (
                       <Link
                         key={href}
                         href={href}
                         onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all border-b border-white/5"
+                        className="flex items-center gap-2.5 px-4 py-3 text-sm text-white/70 hover:text-white hover:bg-white/5 transition-all border-b border-[#232323]"
                       >
                         <Icon className="w-4 h-4 text-rialo-400" />
                         {label}
@@ -135,7 +135,7 @@ export default function Navbar() {
                     ))}
                     <button
                       onClick={() => { setMenuOpen(false); disconnect(); }}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-white/50 hover:text-red-400 hover:bg-red-600/10 transition-all"
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-white/50 hover:text-[#E0563F] hover:bg-[#E0563F]/10 transition-all"
                     >
                       <LogOut className="w-4 h-4" />
                       Disconnect
@@ -149,7 +149,7 @@ export default function Navbar() {
           <button
             onClick={connect}
             disabled={connecting}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-rialo-600 hover:bg-rialo-500 text-black font-medium text-sm transition-all disabled:opacity-50 shrink-0 shadow-lg shadow-rialo-600/20"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black font-semibold text-sm transition-all disabled:opacity-50 shrink-0 shadow-lg shadow-rialo-600/25"
           >
             <Wallet className="w-3.5 h-3.5" />
             {connecting ? "Connecting..." : "Connect Wallet"}

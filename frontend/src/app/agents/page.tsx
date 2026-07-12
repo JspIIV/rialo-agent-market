@@ -22,10 +22,10 @@ const SORTS: { key: SortKey; label: string }[] = [
 const ALL_CAPS = ["text-summary","translation","code-review","security-audit","unit-tests","data-analysis"];
 
 const AVATAR_RAMPS = [
-  "from-emerald-500/40 to-emerald-900/40 text-emerald-300",
-  "from-cyan-500/40 to-cyan-900/40 text-cyan-300",
-  "from-violet-500/40 to-violet-900/40 text-violet-300",
+  "from-rialo-400/40 to-[#2a2110]/40 text-rialo-300",
+  "from-copper-400/40 to-[#241a12]/40 text-copper-300",
   "from-amber-500/40 to-amber-900/40 text-amber-300",
+  "from-[#c9a15a]/40 to-[#2a2213]/40 text-[#e2c48a]",
   "from-rose-500/40 to-rose-900/40 text-rose-300",
 ];
 
@@ -117,7 +117,7 @@ function AgentsPageInner() {
         </div>
         <button
           onClick={() => setShowForm(v => !v)}
-          className="flex items-center gap-2 px-4 py-2 bg-rialo-600 hover:bg-rialo-500 rounded-xl font-medium transition-all text-sm shadow-lg shadow-rialo-600/20 hover:-translate-y-0.5"
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-xl font-medium transition-all text-sm shadow-lg shadow-rialo-600/20 hover:-translate-y-0.5"
         >
           <Plus className="w-4 h-4" /> Register Agent
         </button>
@@ -150,7 +150,7 @@ function AgentsPageInner() {
             ))}
           </div>
           <div className="flex gap-3 pt-2">
-            <button type="submit" className="px-5 py-2 bg-rialo-600 hover:bg-rialo-500 rounded-xl text-sm font-medium transition-all">
+            <button type="submit" className="px-5 py-2 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-xl text-sm font-medium transition-all">
               Register on Devnet
             </button>
             <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2 border border-white/10 hover:border-white/30 rounded-xl text-sm text-white/50 hover:text-white transition-all">
@@ -179,7 +179,7 @@ function AgentsPageInner() {
         <select
           value={sortKey}
           onChange={e => setSortKey(e.target.value as SortKey)}
-          className="ml-auto bg-[#0a0f0d] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-rialo-600/60 transition-all"
+          className="ml-auto bg-[#0A0A0A] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/60 outline-none focus:border-rialo-600/60 transition-all"
         >
           {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
         </select>
@@ -205,7 +205,7 @@ function AgentsPageInner() {
                   <div className="font-semibold flex items-center gap-2 flex-wrap">
                     {agent.name}
                     {isVerified(agent) && (
-                      <BadgeCheck className="w-4 h-4 text-sky-400" aria-label="Verified: 10+ completed tasks" />
+                      <BadgeCheck className="w-4 h-4 text-rialo-400" aria-label="Verified: 10+ completed tasks" />
                     )}
                     {isLiveAgent(agent) ? (
                       <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rialo-600/15 text-rialo-400 text-[10px] font-medium">
@@ -315,7 +315,7 @@ function AgentsPageInner() {
                   <div className="font-semibold text-lg flex items-center gap-2 flex-wrap">
                     {sel.name}
                     {isVerified(sel) && (
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-400 text-[10px] font-medium">
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rialo-400/15 text-rialo-400 text-[10px] font-medium">
                         <BadgeCheck className="w-3 h-3" /> Verified
                       </span>
                     )}
@@ -399,7 +399,7 @@ function AgentsPageInner() {
 
             <div className="space-y-2">
               <button onClick={() => pingAgent(sel)} disabled={ping.state === "loading"}
-                className="w-full px-4 py-2.5 bg-rialo-600 hover:bg-rialo-500 text-black rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black text-black rounded-xl text-sm font-semibold transition-all disabled:opacity-50">
                 {ping.state === "loading" ? "Pinging endpoint..." : "Ping this agent"}
               </button>
               {ping.state === "done" && ping.text && (

@@ -46,7 +46,7 @@ export default function WalletModal() {
           <button
             type="submit"
             disabled={!value.trim()}
-            className="w-full px-4 py-2.5 bg-rialo-600 hover:bg-rialo-500 rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2.5 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-xl text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Use this address
           </button>
