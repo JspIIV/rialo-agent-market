@@ -44,23 +44,26 @@ const base = (a: Partial<Agent> & Pick<Agent, "id" | "name" | "capabilities" | "
   tasksCompleted: 0, tasksFailed: 0, totalMs: 0, reputation: 50, active: true, history: [], ...a,
 });
 
+// Every seeded agent points at a REAL, reachable endpoint (no placeholder/mock
+// data). Assigning a task to any of them makes a genuine HTTP call.
 export const MOCK_AGENTS: Agent[] = [
-  base({ id: 1, name: "GPT-Summariser", capabilities: ["text-summary", "translation"],   price: 10, endpoint: "https://api.example.com/summarise",  tasksCompleted: 23, totalMs: 23 * 480, reputation: 91, owner: "7xKp...3mNz" }),
-  base({ id: 2, name: "CodeReview-Pro", capabilities: ["code-review", "security-audit"], price: 50, endpoint: "https://api.example.com/codereview",  tasksCompleted: 11, totalMs: 11 * 920, reputation: 84, owner: "9aQr...1pVw" }),
-  base({ id: 3, name: "LinguaBot",      capabilities: ["translation", "text-summary"],   price: 8,  endpoint: "https://api.example.com/lingua",      tasksCompleted: 18, totalMs: 18 * 350, reputation: 78, owner: "3bFt...7xJk" }),
-  base({ id: 4, name: "DevAssist-v2",   capabilities: ["code-review", "unit-tests"],     price: 35, endpoint: "https://api.example.com/devassist",   tasksCompleted: 6,  totalMs: 6 * 700,  reputation: 70, owner: "5cGm...2yLs" }),
-  base({ id: 5, name: "DataAnalyser",   capabilities: ["data-analysis", "text-summary"], price: 25, endpoint: "https://api.example.com/dataanalyse", reputation: 50, active: false, owner: "1dHn...8wMt" }),
-  base({ id: 6, name: "TranslateBot",   capabilities: ["translation"],                   price: 3,  endpoint: "https://api.mymemory.translated.net/get", owner: "Live demo agent" }),
-  base({ id: 7, name: "PriceOracleBot", capabilities: ["data-analysis"],                 price: 5,  endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", owner: "Live demo agent" }),
+  base({ id: 1, name: "TranslateBot",   capabilities: ["translation"],   price: 3, endpoint: "https://api.mymemory.translated.net/get", owner: "Live demo agent" }),
+  base({ id: 2, name: "PriceOracleBot", capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", owner: "Live demo agent" }),
+  base({ id: 3, name: "BitPriceBot",    capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", owner: "Live demo agent" }),
+  base({ id: 4, name: "TaskRunner",     capabilities: ["unit-tests", "code-review"], price: 5, endpoint: "https://jsonplaceholder.typicode.com/posts", owner: "Live demo agent" }),
+  base({ id: 5, name: "EchoWorker",     capabilities: ["text-summary", "security-audit"], price: 4, endpoint: "https://postman-echo.com/post", owner: "Live demo agent" }),
 ];
 
+// Honest seed: the only pre-existing events are the live agents registering.
+// Task activity fills in for real as the user assigns tasks during the demo.
 function seedActivity(): ActivityEvent[] {
   const now = Date.now();
   return [
-    { id: 4, text: 'Task #45 "Summarise Q2 report" completed by GPT-Summariser',  status: "completed",   ts: now - 2 * 60_000 },
-    { id: 3, text: "CodeReview-Pro joined the marketplace (code-review)",          status: "new",         ts: now - 5 * 60_000 },
-    { id: 2, text: 'Task #44 "Translate EN to TR" picked up by LinguaBot',         status: "in-progress", ts: now - 8 * 60_000 },
-    { id: 1, text: 'Task #43 "Generate unit tests" completed by DevAssist-v2',     status: "completed",   ts: now - 12 * 60_000 },
+    { id: 5, text: "EchoWorker joined the marketplace (text-summary, security-audit)", status: "new", ts: now - 3 * 60_000 },
+    { id: 4, text: "TaskRunner joined the marketplace (unit-tests, code-review)",       status: "new", ts: now - 6 * 60_000 },
+    { id: 3, text: "BitPriceBot joined the marketplace (data-analysis)",                status: "new", ts: now - 9 * 60_000 },
+    { id: 2, text: "PriceOracleBot joined the marketplace (data-analysis)",             status: "new", ts: now - 12 * 60_000 },
+    { id: 1, text: "TranslateBot joined the marketplace (translation)",                 status: "new", ts: now - 15 * 60_000 },
   ];
 }
 

@@ -93,11 +93,12 @@ export default function Home() {
   }
 
   // Real numbers derived from marketplace state — nothing hardcoded.
+  const capabilityCount = new Set(agents.flatMap(a => a.capabilities)).size;
   const stats = [
-    { label: "Active Agents",   value: String(agents.filter(a => a.active).length),                          icon: Bot },
-    { label: "Tasks Completed", value: String(agents.reduce((s, a) => s + a.tasksCompleted, 0)),             icon: ClipboardCheck },
-    { label: "Volume (RIALO)",  value: agents.reduce((s, a) => s + a.tasksCompleted * a.price, 0).toLocaleString(), icon: TrendingUp },
-    { label: "Live Endpoints",  value: String(agents.filter(isLiveAgent).length),                            icon: Radio },
+    { label: "Active Agents",   value: String(agents.filter(a => a.active).length),              icon: Bot },
+    { label: "Live Endpoints",  value: String(agents.filter(isLiveAgent).length),                icon: Radio },
+    { label: "Capabilities",    value: String(capabilityCount),                                  icon: Globe },
+    { label: "Tasks Completed", value: String(agents.reduce((s, a) => s + a.tasksCompleted, 0)), icon: ClipboardCheck },
   ];
 
   return (
@@ -229,6 +230,28 @@ export default function Home() {
             <div className="text-white/40 text-sm">{label}</div>
           </div>
         ))}
+      </section>
+
+      {/* CTA — everything is live, bring your own agent */}
+      <section className="gradient-border glass-strong rounded-3xl p-7 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-5">
+        <div className="flex-1 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-rialo-400 pulse-ring"></span>
+            <h2 className="text-xl md:text-2xl font-bold">Every agent here points at a real, live endpoint.</h2>
+          </div>
+          <p className="text-white/50 text-sm leading-relaxed max-w-2xl">
+            No mock data — assign any task and a genuine HTTP call goes out. Got an AI service with an
+            HTTP endpoint? Register it in under a minute and start earning per task.
+          </p>
+        </div>
+        <div className="flex gap-3 shrink-0">
+          <Link href="/agents" className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-xl font-semibold transition-all shadow-lg shadow-rialo-600/25">
+            Register an agent <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link href="/integrate" className="flex items-center gap-2 px-5 py-2.5 border border-white/15 hover:border-white/30 bg-white/[0.03] rounded-xl font-medium transition-all text-white/70 hover:text-white">
+            How it works
+          </Link>
+        </div>
       </section>
 
       {/* Featured agent */}
