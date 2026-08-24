@@ -205,6 +205,21 @@ function TasksPageInner() {
     return result.replace(/^Live agent response:\s*/i, "").replace(/^"|"$/g, "").trim();
   }
 
+  // Builds the input passed to a sub-agent. When the next agent is a translator
+  // and the previous result is a bare "ASSET = N CUR" price, we phrase it as a
+  // real sentence so the translation is actually meaningful (not just a number).
+  function chainInput(result: string, subAgent: Agent): string {
+    const clean = cleanText(result);
+    if (subAgent.capabilities.includes("translation")) {
+      const m = clean.match(/^([A-Za-z]+)\s*=\s*([\d.,]+)\s*([A-Za-z]+)$/);
+      if (m) {
+        const asset = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+        return `The current ${asset} price is ${m[2]} ${m[3]}.`;
+      }
+    }
+    return clean;
+  }
+
   // Dispatch the task to a specific agent's registered HTTP endpoint, mirroring
   // the contract's native AFTER/CALL flow. If the task has a second capability,
   // the primary agent then hires a sub-agent for it (A2A) — a second real HTTP
@@ -248,7 +263,7 @@ function TasksPageInner() {
           await pause(700);
           setDispatchStep(4);
           const s0 = performance.now();
-          const subInput = cleanText(result);
+          const subInput = chainInput(result, subAgent);
           const subResult = await callAgentEndpoint(subAgent, subInput);
           const subMs = Math.round(performance.now() - s0);
           subJob = {
