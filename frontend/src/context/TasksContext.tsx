@@ -32,6 +32,9 @@ export type Task = {
   rating?: number;
   deadlineTs?: number;
   createdAt: string;
+  // Plain-language terms the agent accepts by taking the job. The arbiter
+  // judges a dispute against these, not just against the description.
+  terms?: string;
   // Dispute / adjudication
   disputeReason?: string;
   verdict?: "refund" | "release";
@@ -47,7 +50,7 @@ export type Task = {
 // When you assign any of these to a live agent, the result you see is a real
 // HTTP response produced during the demo.
 export const MOCK_TASKS: Task[] = [
-  { id: 47, title: "Report SOL price in Turkish",     description: "Solana price in USD",                          capability: "data-analysis",  budget: 12, poster: "A2A demo", status: "open", secondCapability: "translation", createdAt: "just now" },
+  { id: 47, title: "Report SOL price in Turkish",     description: "Solana price in USD",                          capability: "data-analysis",  budget: 12, poster: "A2A demo", status: "open", secondCapability: "translation", terms: "The price must be fetched live, not invented. The Turkish sentence must contain the same number.", createdAt: "just now" },
   { id: 46, title: "Translate greeting to Turkish",   description: "Good morning, welcome to the marketplace",     capability: "translation",    budget: 3,  poster: "demo",    status: "open", createdAt: "just now" },
   { id: 45, title: "Fetch live BTC price",            description: "Return the current Bitcoin price in USD",     capability: "data-analysis",  budget: 5,  poster: "demo",    status: "open", createdAt: "2m ago" },
   { id: 44, title: "Generate unit tests for login",   description: "Write Jest tests for the login flow",         capability: "unit-tests",     budget: 5,  poster: "demo",    status: "open", createdAt: "5m ago" },

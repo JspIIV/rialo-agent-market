@@ -25,7 +25,7 @@ function TasksPageInner() {
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [dispatching, setDispatching]   = useState<number | null>(null);
-  const [form, setForm] = useState({ title:"", description:"", capability:"text-summary", budget:"", poster:"", deadline:"", secondCapability:"" });
+  const [form, setForm] = useState({ title:"", description:"", capability:"text-summary", budget:"", poster:"", deadline:"", secondCapability:"", terms:"" });
   const [pickerFor, setPickerFor] = useState<number | null>(null);
   const [dispatchStep, setDispatchStep] = useState(0);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -101,11 +101,12 @@ function TasksPageInner() {
       status: "open",
       deadlineTs: mins > 0 ? Date.now() + mins * 60_000 : undefined,
       secondCapability: form.secondCapability || undefined,
+      terms: form.terms.trim() || undefined,
       createdAt: "just now",
     };
     setTasks(prev => [newTask, ...prev]);
     addActivity(`Task #${newTask.id} "${newTask.title}" posted · ${budget} RIALO locked in escrow`, "new");
-    setForm({ title:"", description:"", capability:"text-summary", budget:"", poster:"", deadline:"", secondCapability:"" });
+    setForm({ title:"", description:"", capability:"text-summary", budget:"", poster:"", deadline:"", secondCapability:"", terms:"" });
     setShowForm(false);
   }
 
@@ -141,6 +142,7 @@ function TasksPageInner() {
           taskDescription: task.description,
           agentResponse: task.result ?? "",
           posterClaim: task.disputeReason ?? "",
+          terms: task.terms ?? "",
         }),
       });
       if (!res.ok) throw new Error(`arbiter ${res.status}`);
@@ -197,7 +199,7 @@ function TasksPageInner() {
   function payloadFor(agent: Agent, task: Task): string {
     if (agent.endpoint.includes("api.mymemory.translated.net")) return `GET ?q=${task.description}&langpair=en|tr`;
     if (agent.endpoint.includes("api.coingecko.com")) return "GET " + agent.endpoint.split("?")[1];
-    return JSON.stringify({ task: task.title, description: task.description });
+    return JSON.stringify({ task: task.title, description: task.description, ...(task.terms && { terms: task.terms }) });
   }
 
   // Strips our display prefix/quotes so a result can feed the next agent.
@@ -416,6 +418,14 @@ function TasksPageInner() {
             </div>
             <div className="space-y-1 md:col-span-2">
               <label className="text-sm text-white/50 flex items-center gap-2">
+                <Scale className="w-3.5 h-3.5 text-rialo-400" /> Agreed terms (optional) — the agent accepts these by taking the job; a dispute is judged against them
+              </label>
+              <textarea rows={2} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-rialo-600/60 transition-all resize-none"
+                placeholder="e.g. The summary must be at most 3 bullet points and must not invent figures." value={form.terms}
+                onChange={e => setForm(f => ({ ...f, terms: e.target.value }))} />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-sm text-white/50 flex items-center gap-2">
                 <Radio className="w-3.5 h-3.5 text-copper-400" /> Second step (optional) — the assigned agent hires another agent for this
               </label>
               <select className="w-full bg-[#0A0A0A] border border-white/10 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-copper-400/60 transition-all"
@@ -474,6 +484,11 @@ function TasksPageInner() {
                     <h3 className="font-semibold">{task.title}</h3>
                   </div>
                   <p className="text-sm text-white/40">{task.description}</p>
+                  {task.terms && (
+                    <p className="text-xs text-white/40 flex items-start gap-1.5">
+                      <Scale className="w-3 h-3 mt-0.5 shrink-0 text-rialo-400" /><span><span className="text-white/30">Terms: </span>{task.terms}</span>
+                    </p>
+                  )}
                 </div>
                 <span className={clsx("flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium shrink-0", cfg.color)}>
                   <StatusIcon className={clsx("w-3 h-3", isDispatching && "animate-spin")} />
@@ -673,6 +688,11 @@ function TasksPageInner() {
                     <div className="bg-white/[0.03] rounded-lg px-3 py-2">
                       <span className="text-white/30">Task asked: </span><span className="text-white/60">{task.description}</span>
                     </div>
+                    {task.terms && (
+                      <div className="bg-white/[0.03] rounded-lg px-3 py-2">
+                        <span className="text-white/30">Agreed terms: </span><span className="text-white/60">{task.terms}</span>
+                      </div>
+                    )}
                     {task.result && (
                       <div className="bg-white/[0.03] rounded-lg px-3 py-2">
                         <span className="text-white/30">Agent delivered: </span><span className="text-white/60 break-words">{task.result}</span>

@@ -20,14 +20,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ configured: false }, { status: 501 });
   }
 
-  let body: { taskDescription?: string; agentResponse?: string; posterClaim?: string };
+  let body: { taskDescription?: string; agentResponse?: string; posterClaim?: string; terms?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
-  const taskDescription = (body.taskDescription ?? "").slice(0, 2000);
+  // The judge contract takes three strings, so agreed terms ride inside the
+  // task description rather than needing a new contract deployment.
+  const terms = (body.terms ?? "").trim();
+  const taskDescription = (terms
+    ? `${body.taskDescription ?? ""}\n\nAgreed terms (accepted by the agent when it took the job; judge the delivery against these): ${terms}`
+    : body.taskDescription ?? "").slice(0, 2000);
   const agentResponse = (body.agentResponse ?? "").slice(0, 2000);
   const posterClaim = (body.posterClaim ?? "").slice(0, 2000);
 
