@@ -498,7 +498,7 @@ function TasksPageInner() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-white/30 font-mono">#{task.id}</span>
-                    <h3 className="font-semibold">{task.title}</h3>
+                    <h3 className="font-semibold text-lg">{task.title}</h3>
                   </div>
                   <p className="text-sm text-white/40">{task.description}</p>
                   {task.terms && (
@@ -520,12 +520,12 @@ function TasksPageInner() {
                     <Radio className="w-2.5 h-2.5" />+ {task.secondCapability}
                   </span>
                 )}
-                <span className="px-2 py-0.5 bg-white/[0.04] rounded-md"><span className="text-white font-medium">{task.budget}</span> RIALO</span>
+                <span className="px-2 py-0.5 rounded-md border border-rialo-400/25 bg-rialo-400/10 text-rialo-400 tabular-nums"><span className="font-medium">{task.budget}</span> RIALO</span>
                 {task.assignedAgent && <span className="px-2 py-0.5 bg-white/[0.04] rounded-md">→ <span className="text-white/60">{task.assignedAgent}</span></span>}
                 {task.subJob && <span className="px-2 py-0.5 bg-copper-400/10 text-copper-300 rounded-md">hired <span className="font-medium">{task.subJob.agentName}</span></span>}
                 {!!task.agentBond && !task.bondSettled && (
                   <span className="px-2 py-0.5 bg-rialo-600/10 text-rialo-300 rounded-md flex items-center gap-1" title="Collateral the agent locked for this job. Rating the result, or the dispute window passing, returns it; a refund verdict slashes it to the poster.">
-                    <Lock className="w-3 h-3" />{task.agentBond} bond locked
+                    <Lock className="w-3 h-3" />{task.agentBond} RIALO bond locked
                   </span>
                 )}
                 {task.status === "open" && task.deadlineTs && (
@@ -581,29 +581,23 @@ function TasksPageInner() {
               {task.status === "completed" && (
                 <div className="flex items-center gap-2 text-xs text-white/40 flex-wrap">
                   <CheckCircle className="w-3.5 h-3.5 text-rialo-400" />
-                  Escrow released:
                   {task.subJob?.breached ? (
-                    <>
-                      <span className="text-rialo-400 font-medium">{split.toAgent} → {task.assignedAgent}</span>
-                      <span className="text-white/25">·</span>
-                      <span className="text-red-300">{task.subJob.agentName} breached · {task.subJob.bond} bond slashed to {task.assignedAgent}</span>
-                      <span className="text-white/25">·</span>
-                      <span className="text-white/50">{split.fee} → protocol</span>
-                    </>
+                    <span className="text-white/70">
+                      Released <span className="text-rialo-400 font-medium tabular-nums">{split.toAgent} RIALO</span> to {task.assignedAgent}
+                      <span className="text-white/40"> · </span><span className="text-red-300">{task.subJob.agentName} breached; its {task.subJob.bond} RIALO bond went to {task.assignedAgent}</span>
+                      <span className="text-white/40"> · </span>protocol fee <span className="tabular-nums">{split.fee}</span>
+                    </span>
                   ) : task.subJob ? (
-                    <>
-                      <span className="text-rialo-400 font-medium">{(split.toAgent - task.subJob.cost).toFixed(2)} → {task.assignedAgent}</span>
-                      <span className="text-white/25">·</span>
-                      <span className="text-copper-300 font-medium">{task.subJob.cost} → {task.subJob.agentName}</span>
-                      <span className="text-white/25">·</span>
-                      <span className="text-white/50">{split.fee} → protocol</span>
-                    </>
+                    <span className="text-white/70">
+                      Released <span className="text-rialo-400 font-medium tabular-nums">{(split.toAgent - task.subJob.cost).toFixed(2)} RIALO</span> to {task.assignedAgent}
+                      <span className="text-white/40"> · </span><span className="text-copper-300 font-medium tabular-nums">{task.subJob.cost} RIALO</span> to {task.subJob.agentName}
+                      <span className="text-white/40"> · </span>protocol fee <span className="tabular-nums">{split.fee}</span>
+                    </span>
                   ) : (
-                    <>
-                      <span className="text-rialo-400 font-medium">{split.toAgent} → agent</span>
-                      <span className="text-white/25">·</span>
-                      <span className="text-white/50">{split.fee} → protocol ({PROTOCOL_FEE_BPS / 100}%)</span>
-                    </>
+                    <span className="text-white/70">
+                      Released <span className="text-rialo-400 font-medium tabular-nums">{split.toAgent} RIALO</span> to {task.assignedAgent ?? "the agent"}
+                      <span className="text-white/40"> · </span>protocol fee <span className="tabular-nums">{split.fee}</span> ({PROTOCOL_FEE_BPS / 100}%)
+                    </span>
                   )}
                 </div>
               )}
@@ -846,12 +840,21 @@ function EscrowLifecycle({ task }: { task: Task }) {
       {shown.map((label, i) => {
         const done = i < reached || (i === reached && (branch !== null || i === steps.length - 1));
         const current = i === reached && !done;
+        const next = i === reached + 1 && !branch;
+        // Done: a check. Current: a glowing gold dot. Next: its name, muted.
+        // Anything further is a dot, so the card shows where the money is, not the whole road.
         return (
           <li key={label} className="flex items-center gap-1.5" aria-current={current ? "step" : undefined}>
-            {i > 0 && <span aria-hidden className={clsx("w-4 h-px", i <= reached ? "bg-rialo-400/50" : "bg-white/15")} />}
-            <span className={clsx("w-1.5 h-1.5 rounded-full",
-              current ? "bg-rialo-400 shadow-[0_0_8px_rgba(232,180,79,0.6)]" : done ? "bg-rialo-400/70" : "bg-white/20")} />
-            <span className={current ? "text-rialo-300" : done ? "text-white/70" : "text-white/45"}>{label}</span>
+            {i > 0 && <span aria-hidden className={clsx("w-3 h-px", i <= reached ? "bg-rialo-400/50" : "bg-white/15")} />}
+            {done
+              ? <CheckCircle className="w-3 h-3 text-white/55" aria-hidden />
+              : <span className={clsx("w-1.5 h-1.5 rounded-full", current ? "bg-rialo-400 shadow-[0_0_8px_rgba(232,180,79,0.6)]" : "bg-white/15")} />}
+            {(done || current || next) && (
+              <span className={current ? "text-rialo-400 font-medium" : done ? "text-white/55" : "text-white/45"}>
+                {next ? `Next: ${label}` : label}
+              </span>
+            )}
+            {!(done || current || next) && <span className="sr-only">{label}</span>}
           </li>
         );
       })}

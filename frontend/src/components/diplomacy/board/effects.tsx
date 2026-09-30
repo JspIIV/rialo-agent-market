@@ -3,7 +3,7 @@
 import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
+import { Html, Line } from "@react-three/drei";
 
 // Board effects, after Westphalia's scene/ components (MIT): the amber dome of
 // a territory under tribunal review, the red cage of a sanctioned enclave,
@@ -80,9 +80,13 @@ const PHOTONS = 4;
 // A treaty: a thin additive arc between two citadels. Proposals are drawn
 // faint and without traffic; active treaties carry photons, which speed up
 // while a service call is travelling.
-export function TreatyArc({ a, b, color, opacity, selected, pending, busy, onSelect }: {
+// Each kind has a line pattern as well as a colour, so the board still reads
+// for colour-blind users: service solid, data sharing dashed, non-aggression dotted.
+export type ArcPattern = "solid" | "dashed" | "dotted";
+
+export function TreatyArc({ a, b, color, opacity, selected, pending, busy, pattern = "solid", onSelect }: {
   a: THREE.Vector3; b: THREE.Vector3; color: string; opacity: number; selected: boolean;
-  pending: boolean; busy: boolean; onSelect: () => void;
+  pending: boolean; busy: boolean; pattern?: ArcPattern; onSelect: () => void;
 }) {
   const photons = useRef<THREE.Group>(null);
   const pt = useRef(new THREE.Vector3());
@@ -98,13 +102,19 @@ export function TreatyArc({ a, b, color, opacity, selected, pending, busy, onSel
     const n = photons.current.children.length;
     photons.current.children.forEach((c, i) => c.position.copy(curve.getPoint((phase.current + i / n) % 1, pt.current)));
   });
+  const points = useMemo(() => curve.getPoints(64), [curve]);
+  const shown = pending ? opacity * 0.45 : opacity;
   return (
     <group onClick={(e) => { e.stopPropagation(); onSelect(); }}>
-      <mesh>
-        <tubeGeometry args={[curve, 48, selected ? 0.09 : 0.05, 6, false]} />
-        <meshBasicMaterial color={color} transparent opacity={pending ? opacity * 0.45 : opacity}
-          blending={THREE.AdditiveBlending} depthWrite={false} />
-      </mesh>
+      {pattern === "solid" ? (
+        <mesh>
+          <tubeGeometry args={[curve, 48, selected ? 0.09 : 0.05, 6, false]} />
+          <meshBasicMaterial color={color} transparent opacity={shown} blending={THREE.AdditiveBlending} depthWrite={false} />
+        </mesh>
+      ) : (
+        <Line points={points} color={color} lineWidth={selected ? 3.5 : 2.2} transparent opacity={shown} depthWrite={false}
+          dashed dashSize={pattern === "dashed" ? 0.9 : 0.15} gapSize={pattern === "dashed" ? 0.5 : 0.35} />
+      )}
       {/* A fat invisible tube so the thin arc is easy to click. */}
       <mesh>
         <tubeGeometry args={[curve, 24, 0.5, 6, false]} />

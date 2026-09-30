@@ -12,8 +12,8 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-display" });
 
 export const metadata: Metadata = {
-  title: "Rialo Agent Marketplace",
-  description: "Autonomous AI Agent Marketplace on Rialo — on-chain task dispatch, no oracle needed",
+  title: "AgentMarket on Rialo · Agent Diplomacy",
+  description: "AI agents that sign bonded treaties, hire each other and settle breaches in a GenLayer tribunal, plus a marketplace where people hire them. On Rialo.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -30,22 +30,28 @@ export function EnclaveDirectory({ selectedId, onSelect }: { selectedId: string 
   const { world, statusOf } = useDiplomacy();
   const sorted = [...world.enclaves].sort((a, b) => Number(b.owner === "you") - Number(a.owner === "you") || b.reputation - a.reputation);
   return (
-    <div className="space-y-1">
+    <div className="space-y-0.5">
       {sorted.map(e => {
         const st = statusOf(e.id);
         const live = E.treatiesOf(world, e.id).filter(t => t.status === "active").length;
+        // The swatch is the island's colour, so a name here finds its island on the map.
+        const dot = st !== "active" ? STATUS_COLOR[st] : live > 0 ? "#6EE7B7" : "#3F3F3A";
         return (
           <button key={e.id} onClick={() => onSelect(e.id)}
-            className={clsx("w-full text-left rounded-lg px-2.5 py-2 transition-all flex items-center gap-2.5 border",
-              selectedId === e.id ? "border-rialo-400/40 bg-rialo-400/[0.07]" : "border-transparent hover:bg-white/[0.04]")}>
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLOR[st], boxShadow: `0 0 8px ${STATUS_COLOR[st]}` }} />
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm truncate">{e.name}{e.owner === "you" && <span className="text-rialo-400 text-[10px] ml-1.5">YOURS</span>}</span>
-              <span className="block text-[10px] text-ink-muted truncate">{e.archetype} · {live} active</span>
+            className={clsx("w-full text-left rounded-lg px-2.5 h-14 transition-all flex items-center gap-2.5 border",
+              selectedId === e.id ? "border-rialo-400/40 bg-rialo-400/[0.07]" : "border-transparent hover:bg-white/5")}>
+            <span className="relative w-6 h-6 rounded-md shrink-0 border border-white/10"
+              style={{ background: `linear-gradient(135deg, ${BIOME_BY_ARCHETYPE[e.archetype].accent}, ${BIOME_BY_ARCHETYPE[e.archetype].base})` }}>
+              <span className="absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#101010]" style={{ background: dot }}
+                title={st !== "active" ? STATUS_LABEL[st] : `${live} active treaties`} />
             </span>
-            <span className="text-right shrink-0">
-              <span className="block text-xs font-mono">{e.reputation}</span>
-              <span className="block text-[9px] text-ink-muted">rep</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px] text-ink-primary truncate">{e.name}{e.owner === "you" && <span className="text-rialo-400 text-[10px] ml-1.5">YOURS</span>}</span>
+              <span className="block text-[11px] text-ink-muted truncate">{e.archetype} · {live} active</span>
+            </span>
+            <span className="text-right shrink-0 w-9">
+              <span className="block text-[13px] tabular-nums text-ink-secondary">{e.reputation}</span>
+              <span className="block text-[10px] uppercase tracking-wider text-ink-muted">rep</span>
             </span>
           </button>
         );
@@ -95,7 +101,7 @@ export function Ledger({ limit = 40 }: { limit?: number }) {
             <div key={ev.id} className={clsx("flex gap-2 py-1.5 pl-2 border-l-2 border-b border-b-white/5 text-[11px] leading-snug",
               loud && (ev.kind === "sanction" ? "bg-red-500/[0.08]" : "bg-amber-500/[0.08]"))} style={{ borderLeftColor: k.color }}>
               <span className="min-w-0">
-                <span className="text-[9px] uppercase tracking-wider mr-1.5" style={{ color: k.color }}>{k.label}</span>
+                <span className="text-[9px] font-medium uppercase tracking-wider mr-1.5 px-1 py-px rounded" style={{ color: k.color, background: `${k.color}26` }}>{k.label}</span>
                 <span className={loud ? "text-ink-primary font-medium" : "text-ink-secondary"}>{ev.text}</span>
                 <span className="text-ink-muted"> · {timeAgo(ev.ts)}</span>
               </span>

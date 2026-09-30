@@ -33,8 +33,8 @@ const TABS = [["world", "World", Globe2], ["tribunal", "Tribunal", Gavel], ["tre
 function Legend({ highlight, className }: { highlight: boolean; className?: string }) {
   const items: [string, React.ReactNode][] = [
     ["Service", <span key="s" className="w-4 h-0.5 rounded-full" style={{ background: KIND_COLOR.SERVICE }} />],
-    ["Data", <span key="d" className="w-4 h-0.5 rounded-full" style={{ background: KIND_COLOR.DATA_SHARING }} />],
-    ["Non-aggression", <span key="n" className="w-4 h-0.5 rounded-full" style={{ background: KIND_COLOR.NON_AGGRESSION }} />],
+    ["Data", <span key="d" className="w-4 h-0.5" style={{ background: `repeating-linear-gradient(90deg, ${KIND_COLOR.DATA_SHARING} 0 5px, transparent 5px 8px)` }} />],
+    ["Non-aggression", <span key="n" className="w-4 h-0.5" style={{ background: `repeating-linear-gradient(90deg, ${KIND_COLOR.NON_AGGRESSION} 0 2px, transparent 2px 5px)` }} />],
     ["Proposed", <span key="p" className="w-4 h-0.5 rounded-full opacity-40" style={{ background: KIND_COLOR.SERVICE }} />],
     ["Under tribunal", <span key="t" className="w-2.5 h-2.5 rounded-full border border-amber-400 bg-amber-400/25" />],
     ["Sanctioned", <span key="x" className="w-2.5 h-2.5 border border-red-400" />],
@@ -56,7 +56,7 @@ function AutonomySwitch({ on, onChange }: { on: boolean; onChange: (v: boolean) 
     <button role="switch" aria-checked={on} onClick={() => onChange(!on)}
       title="When on, the agents propose, ratify, call each other, litigate and claim by themselves"
       className="flex items-center gap-2 text-xs text-ink-secondary hover:text-ink-primary whitespace-nowrap">
-      <span className={clsx("relative w-9 h-5 rounded-full transition-colors", on ? "bg-emerald-500/70" : "bg-white/15")}>
+      <span className={clsx("relative w-9 h-5 rounded-full transition-colors", on ? "bg-rialo-400" : "bg-[#2A2A2A]")}>
         <span className={clsx("absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all", on ? "left-[18px]" : "left-0.5")} />
       </span>
       <Bot className="w-3.5 h-3.5" /><span className="md:hidden xl:inline">Autonomous agents</span><span className="hidden md:inline xl:hidden">Agents</span>
@@ -71,10 +71,19 @@ const TOUR = [
   { title: "Found an enclave to take part", body: "The agents already deal with each other on their own. Found your own enclave from your wallet to propose treaties, hire other agents, and sue when they break their word." },
 ];
 
+function SheetHandle({ tall, onToggle }: { tall: boolean; onToggle: () => void }) {
+  return (
+    <button onClick={onToggle} aria-expanded={tall} aria-label={tall ? "Shrink panel" : "Expand panel"}
+      className="md:hidden -mt-2 mb-2 mx-auto flex w-full justify-center py-1.5">
+      <span className="h-1 w-10 rounded-full bg-white/25" />
+    </button>
+  );
+}
+
 function Tour({ step, onStep, onDone, onFound }: { step: number; onStep: (n: number) => void; onDone: () => void; onFound: () => void }) {
   const t = TOUR[step];
   return (
-    <div className="fixed inset-0 z-[125] bg-black/50 flex items-end md:items-center justify-center p-4 pointer-events-none">
+    <div className="fixed inset-0 z-[125] bg-black/30 flex items-end md:items-start md:justify-end justify-center p-4 md:pt-[8.5rem] md:pr-8 pointer-events-none">
       <div role="dialog" aria-modal="true" aria-labelledby="tour-title"
         className="pointer-events-auto w-[min(420px,calc(100vw-32px))] rounded-2xl bg-[#101010] border border-[#2A2A2A] p-5 space-y-3 shadow-2xl mb-20 md:mb-0">
         <div className="flex items-center justify-between">
@@ -116,6 +125,8 @@ export default function DiplomacyApp() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
   const [tour, setTour] = useState<number | null>(null);
+  // Phones: sheets open short so the map stays visible; the handle makes them tall.
+  const [sheetTall, setSheetTall] = useState(false);
 
   const escrow = E.lockedEscrow(world);
   const active = world.treaties.filter(t => t.status === "active").length;
@@ -139,6 +150,7 @@ export default function DiplomacyApp() {
     setFocus(null);
   }
   function selectEnclave(id: string | null) {
+    setSheetTall(false);
     setSelected(id);
     setTreaty(null);
     setMobilePanel(null);
@@ -197,8 +209,8 @@ export default function DiplomacyApp() {
       {view === "world" && (
         <div role="application" aria-label="Agent archipelago: islands are agents, arcs are treaties" className="absolute inset-0 isolate z-0">
           <Board world={world} statusOf={d.statusOf} busyTreaties={d.busyTreaties} escrow={escrow}
-            hoveredId={hovered} selectedId={selected} focusId={focus} selectedTreaty={treaty} showLabels={!modalOpen}
-            interactive={!modalOpen} onHover={setHovered} onSelect={selectEnclave} onSelectTreaty={selectTreaty} />
+            hoveredId={hovered} selectedId={selected} focusId={focus} selectedTreaty={treaty} showLabels={!(foundOpen || !!propose || disputeFor !== null || !!d.latestVerdict || about)}
+            interactive={!modalOpen} emphasizeArcs={tour === 1} onHover={setHovered} onSelect={selectEnclave} onSelectTreaty={selectTreaty} />
         </div>
       )}
 
@@ -272,7 +284,8 @@ export default function DiplomacyApp() {
         {/* Selection: right panel on desktop, bottom sheet above the tab bar on phones */}
         {detail && (
           <div className={clsx(panelCls, "absolute z-10 p-4 overflow-y-auto",
-            "inset-x-3 bottom-[4.5rem] max-h-[58%] md:inset-x-auto md:right-4 md:top-[4.5rem] md:bottom-4 md:max-h-none md:w-80")}>
+            "inset-x-3 bottom-[4.5rem] md:inset-x-auto md:right-4 md:top-[4.5rem] md:bottom-4 md:max-h-none md:w-80", sheetTall ? "max-h-[85%]" : "max-h-[42%]")}>
+            <SheetHandle tall={sheetTall} onToggle={() => setSheetTall(!sheetTall)} />
             <button onClick={clearSelection} className="absolute top-3 right-3 text-ink-muted hover:text-ink-primary" aria-label="Close">
               <X className="w-4 h-4" />
             </button>
@@ -282,7 +295,8 @@ export default function DiplomacyApp() {
 
         {/* Phones: directory or ledger sheet */}
         {!detail && mobilePanel && (
-          <div className={clsx(panelCls, "md:hidden absolute z-10 inset-x-3 bottom-[4.5rem] max-h-[58%] p-4 flex flex-col")}>
+          <div className={clsx(panelCls, "md:hidden absolute z-10 inset-x-3 bottom-[4.5rem] p-4 flex flex-col", sheetTall ? "max-h-[85%]" : "max-h-[42%]")}>
+            <SheetHandle tall={sheetTall} onToggle={() => setSheetTall(!sheetTall)} />
             <div className="text-[10px] uppercase tracking-[0.16em] text-rialo-500 mb-2">{mobilePanel === "directory" ? "Sovereigns" : "Ledger"}</div>
             <div className="overflow-y-auto min-h-0 flex flex-col">
               {mobilePanel === "directory" ? <EnclaveDirectory selectedId={selected} onSelect={selectEnclave} /> : <Ledger />}
@@ -296,11 +310,11 @@ export default function DiplomacyApp() {
         )}
 
         {/* Phones: bottom tab bar */}
-        <nav aria-label="Panels" className="md:hidden absolute z-20 bottom-0 inset-x-0 h-14 bg-[#0A0A0A]/95 border-t border-[#262626] grid grid-cols-3">
+        <nav aria-label="Panels" className="md:hidden absolute z-20 bottom-0 inset-x-0 h-14 box-content pb-[env(safe-area-inset-bottom)] bg-[#0A0A0A]/95 border-t border-[#262626] grid grid-cols-3">
           {([["directory", "Directory", Users], [null, "Map", MapIcon], ["ledger", "Ledger", ListIcon]] as const).map(([panel, label, Icon]) => {
             const on = panel === null ? !mobilePanel && !detail : mobilePanel === panel;
             return (
-              <button key={label} onClick={() => { clearSelection(); setMobilePanel(panel); }} aria-pressed={on}
+              <button key={label} onClick={() => { clearSelection(); setSheetTall(false); setMobilePanel(panel); }} aria-pressed={on}
                 className={clsx("flex flex-col items-center justify-center gap-0.5 text-[11px]", on ? "text-rialo-400" : "text-ink-secondary")}>
                 <Icon className="w-5 h-5" />{label}
               </button>

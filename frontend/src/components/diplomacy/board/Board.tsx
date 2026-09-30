@@ -20,7 +20,8 @@ export interface BoardProps {
   focusId: string | null;
   selectedTreaty: number | null;
   showLabels: boolean;
-  interactive?: boolean; // false while a modal is open, so a drag never moves the map behind it
+  interactive?: boolean;
+  emphasizeArcs?: boolean; // the tour is explaining treaties: every arc lit and busy // false while a modal is open, so a drag never moves the map behind it
   onHover: (id: string | null) => void;
   onSelect: (id: string | null) => void;
   onSelectTreaty: (id: number) => void;
@@ -125,8 +126,8 @@ export default function Board(p: BoardProps) {
         <Suspense fallback={null}>
           <Stars radius={150} depth={70} count={2400} factor={3} saturation={0} fade speed={0.5} />
           <ParticleField />
-          <Grid position={[0, -1.85, 0]} args={[10, 10]} infiniteGrid cellSize={2} cellThickness={0.6} cellColor="#1c1c1c"
-            sectionSize={10} sectionThickness={1} sectionColor="#4a3d22" fadeDistance={150} fadeStrength={2.5} />
+          <Grid position={[0, -1.85, 0]} args={[10, 10]} infiniteGrid cellSize={2} cellThickness={0.6} cellColor="#141414"
+            sectionSize={10} sectionThickness={1} sectionColor="#2e2616" fadeDistance={150} fadeStrength={2.5} />
 
           <Hub escrow={p.escrow} reserves={p.world.reserves} showLabel={p.showLabels} />
 
@@ -146,8 +147,9 @@ export default function Board(p: BoardProps) {
             if (!a || !b) return null;
             const opacity = !focus ? 0.55 : focus === t.partyA || focus === t.partyB ? 1 : 0.15;
             return (
-              <TreatyArc key={t.id} a={a} b={b} color={KIND_COLOR[t.kind]} opacity={t.id === p.selectedTreaty ? 1 : opacity}
-                selected={t.id === p.selectedTreaty} pending={t.status === "proposed"} busy={p.busyTreaties.has(t.id)}
+              <TreatyArc key={t.id} a={a} b={b} color={KIND_COLOR[t.kind]} opacity={t.id === p.selectedTreaty || p.emphasizeArcs ? 1 : opacity}
+                selected={t.id === p.selectedTreaty || !!p.emphasizeArcs} pending={t.status === "proposed"} busy={p.busyTreaties.has(t.id) || !!p.emphasizeArcs}
+                pattern={t.kind === "SERVICE" ? "solid" : t.kind === "DATA_SHARING" ? "dashed" : "dotted"}
                 onSelect={() => p.onSelectTreaty(t.id)} />
             );
           })}

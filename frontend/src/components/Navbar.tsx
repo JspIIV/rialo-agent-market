@@ -8,7 +8,7 @@ import { useWallet } from "@/context/WalletContext";
 import { useTasks } from "@/context/TasksContext";
 
 const links = [
-  { href: "/",        label: "Dashboard",  icon: LayoutDashboard },
+  { href: "/market",  label: "Market",     icon: LayoutDashboard },
   { href: "/agents",  label: "Agents",     icon: Bot },
   { href: "/tasks",   label: "Tasks",      icon: ClipboardList },
 ];
@@ -52,10 +52,25 @@ export default function Navbar() {
 
         {/* Links */}
         <div className="flex gap-1 bg-[#141414] border border-[#262626] rounded-xl p-1">
+          <Link
+            href="/"
+            aria-label="Diplomacy"
+            className={clsx(
+              "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
+              path === "/"
+                ? "bg-rialo-400/15 text-rialo-400 font-medium"
+                : "text-white/50 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <Globe2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Diplomacy</span>
+          </Link>
+          <span className="w-px bg-[#262626] my-1 mx-0.5" />
           {links.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
+              aria-label={label}
               className={clsx(
                 "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
                 path === href
@@ -67,19 +82,6 @@ export default function Navbar() {
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
-          <span className="w-px bg-[#262626] my-1 mx-0.5" />
-          <Link
-            href="/diplomacy"
-            className={clsx(
-              "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
-              path === "/diplomacy"
-                ? "bg-rialo-400/15 text-rialo-400 font-medium"
-                : "text-white/50 hover:text-white hover:bg-white/5"
-            )}
-          >
-            <Globe2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Diplomacy</span>
-          </Link>
         </div>
 
         {/* Search */}
