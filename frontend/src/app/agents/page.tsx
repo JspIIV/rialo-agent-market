@@ -1,9 +1,9 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Bot, Plus, Star, XCircle, Zap, X, Radio, BadgeCheck, Gauge, TrendingUp } from "lucide-react";
+import { Bot, Plus, Star, XCircle, Zap, X, Radio, BadgeCheck, Gauge, TrendingUp, Lock } from "lucide-react";
 import clsx from "clsx";
-import { useAgents, Agent, isLiveAgent, avgResponseMs, successRate, timeAgo } from "@/context/AgentsContext";
+import { useAgents, Agent, isLiveAgent, avgResponseMs, successRate, timeAgo, freeBond } from "@/context/AgentsContext";
 import { useTasks } from "@/context/TasksContext";
 import { useWallet } from "@/context/WalletContext";
 
@@ -38,12 +38,13 @@ function avatarRamp(id: number) {
 }
 
 function AgentsPageInner() {
-  const { agents, addAgent } = useAgents();
+  const { agents, addAgent, stakeBond, addActivity } = useAgents();
   const { search } = useTasks();
-  const { pubkey } = useWallet();
+  const { pubkey, balance, spend } = useWallet();
+  const [formError, setFormError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter]   = useState("all");
-  const [form, setForm] = useState({ name:"", caps:"", price:"", endpoint:"", owner:"" });
+  const [form, setForm] = useState({ name:"", caps:"", price:"", endpoint:"", owner:"", bond:"" });
   const [selected, setSelected] = useState<Agent | null>(null);
   const [ping, setPing] = useState<{ state: "idle" | "loading" | "done"; text?: string }>({ state: "idle" });
   const [sortKey, setSortKey] = useState<SortKey>("reputation");
@@ -93,15 +94,30 @@ function AgentsPageInner() {
 
   function handleAddAgent(e: React.FormEvent) {
     e.preventDefault();
+    // The stake comes out of the owner's wallet, like any other deposit.
+    const bond = Number(form.bond) || 0;
+    if (bond > 0 && !spend(bond)) {
+      setFormError(`Insufficient balance: staking ${bond} RIALO needs more than your ${balance}. Use the + button in the navbar (devnet faucet).`);
+      return;
+    }
+    setFormError(null);
     addAgent({
+      bond,
       name: form.name,
       capabilities: form.caps.split(",").map(s => s.trim().toLowerCase()),
       price: Number(form.price),
       endpoint: form.endpoint,
       owner: form.owner || pubkey || "Anonymous",
     });
-    setForm({ name:"", caps:"", price:"", endpoint:"", owner:"" });
+    setForm({ name:"", caps:"", price:"", endpoint:"", owner:"", bond:"" });
     setShowForm(false);
+  }
+
+  const STAKE_STEP = 25;
+  function topUpBond(agent: Agent) {
+    if (!spend(STAKE_STEP)) return;
+    stakeBond(agent.id, STAKE_STEP);
+    addActivity(`${agent.name} staked ${STAKE_STEP} RIALO more as bond`, "new");
   }
 
   return (
@@ -136,6 +152,7 @@ function AgentsPageInner() {
               { key:"price",    label:"Price per Task (RIALO)",        placeholder:"10",                                  required: true },
               { key:"endpoint", label:"HTTP Endpoint",                 placeholder:"https://your-agent.example.com/run", required: true },
               { key:"owner",    label:"Owner Pubkey (optional)",       placeholder: pubkey || "Leave blank to use connected wallet", required: false },
+              { key:"bond",     label:"Bond stake (RIALO) — every job locks half its value", placeholder:"50",                    required: false },
             ].map(({ key, label, placeholder, required }) => (
               <div key={key} className="space-y-1">
                 <label className="text-sm text-white/50">{label}</label>
@@ -149,6 +166,9 @@ function AgentsPageInner() {
               </div>
             ))}
           </div>
+          {formError && (
+            <div className="bg-red-600/10 border border-red-600/20 rounded-xl px-4 py-3 text-sm text-red-300">{formError}</div>
+          )}
           <div className="flex gap-3 pt-2">
             <button type="submit" className="px-5 py-2 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-xl text-sm font-medium transition-all">
               Register on Devnet
@@ -251,6 +271,11 @@ function AgentsPageInner() {
                 <div className="text-lg font-bold font-display">{agent.tasksCompleted}</div>
                 <div className="text-xs text-white/30">completed</div>
               </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-white/40">
+              <Lock className="w-3 h-3 text-rialo-400" />
+              <span className="text-white/70 font-medium">{freeBond(agent)}</span> RIALO bond staked
+              {(agent.bondLocked ?? 0) > 0 && <span className="text-white/30">· {agent.bondLocked} locked in jobs</span>}
             </div>
 
             {/* Reputation bar */}
@@ -392,6 +417,18 @@ function AgentsPageInner() {
                 </div>
               </div>
             )}
+
+            <div className="bg-white/[0.04] rounded-xl p-3 flex items-center gap-2.5">
+              <Lock className="w-4 h-4 text-rialo-400 shrink-0" />
+              <div>
+                <div className="text-sm font-semibold">{freeBond(sel)} RIALO staked{(sel.bondLocked ?? 0) > 0 && <span className="text-white/40 font-normal"> · {sel.bondLocked} locked</span>}</div>
+                <div className="text-[11px] text-white/30">Each job locks half its value; a breach slashes it to whoever was wronged</div>
+              </div>
+              <button onClick={() => topUpBond(sel)} disabled={balance < STAKE_STEP}
+                className="ml-auto shrink-0 px-3 py-1.5 border border-rialo-600/30 hover:bg-rialo-600/20 rounded-lg text-xs text-rialo-400 transition-all disabled:opacity-40">
+                Stake {STAKE_STEP}
+              </button>
+            </div>
 
             <div className="flex items-center gap-2 text-xs text-white/40 bg-white/[0.04] rounded-lg px-3 py-2.5 font-mono break-all">
               <Zap className="w-3 h-3 shrink-0 text-rialo-400" />{sel.endpoint}

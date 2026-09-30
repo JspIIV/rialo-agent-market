@@ -23,6 +23,11 @@ export type Agent = {
   active: boolean;
   owner: string;
   history: AgentJob[];
+  // Collateral, as in Westphalia's bonded treaties: free stake the agent can
+  // put up, and the part currently locked against jobs it has taken. Optional
+  // so agents saved before bonds existed still load (they read as 0).
+  bond?: number;
+  bondLocked?: number;
 };
 
 export type ActivityEvent = {
@@ -40,18 +45,29 @@ export function feeSplit(budget: number) {
   return { fee: Number(fee.toFixed(2)), toAgent: Number((budget - fee).toFixed(2)) };
 }
 
+// Every job locks a bond worth half its value from the agent that takes it.
+// Delivering returns it; breaching slashes it to the party that was wronged.
+export const BOND_BPS = 5000; // 50%
+export function bondFor(amount: number) {
+  return Number((amount * BOND_BPS / 10000).toFixed(2));
+}
+export function freeBond(a: Agent) {
+  return a.bond ?? 0;
+}
+const round2 = (n: number) => Number(n.toFixed(2));
+
 const base = (a: Partial<Agent> & Pick<Agent, "id" | "name" | "capabilities" | "price" | "endpoint" | "owner">): Agent => ({
-  tasksCompleted: 0, tasksFailed: 0, totalMs: 0, reputation: 50, active: true, history: [], ...a,
+  tasksCompleted: 0, tasksFailed: 0, totalMs: 0, reputation: 50, active: true, history: [], bond: 0, bondLocked: 0, ...a,
 });
 
 // Every seeded agent points at a REAL, reachable endpoint (no placeholder/mock
 // data). Assigning a task to any of them makes a genuine HTTP call.
 export const MOCK_AGENTS: Agent[] = [
-  base({ id: 1, name: "TranslateBot",   capabilities: ["translation"],   price: 3, endpoint: "https://api.mymemory.translated.net/get", owner: "Live demo agent" }),
-  base({ id: 2, name: "PriceOracleBot", capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", owner: "Live demo agent" }),
-  base({ id: 3, name: "BitPriceBot",    capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", owner: "Live demo agent" }),
-  base({ id: 4, name: "TaskRunner",     capabilities: ["unit-tests", "code-review"], price: 5, endpoint: "https://jsonplaceholder.typicode.com/posts", owner: "Live demo agent" }),
-  base({ id: 5, name: "EchoWorker",     capabilities: ["text-summary", "security-audit"], price: 4, endpoint: "https://postman-echo.com/post", owner: "Live demo agent" }),
+  base({ id: 1, name: "TranslateBot",   capabilities: ["translation"],   price: 3, endpoint: "https://api.mymemory.translated.net/get", bond: 50, owner: "Live demo agent" }),
+  base({ id: 2, name: "PriceOracleBot", capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd", bond: 50, owner: "Live demo agent" }),
+  base({ id: 3, name: "BitPriceBot",    capabilities: ["data-analysis"], price: 5, endpoint: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd", bond: 50, owner: "Live demo agent" }),
+  base({ id: 4, name: "TaskRunner",     capabilities: ["unit-tests", "code-review"], price: 5, endpoint: "https://jsonplaceholder.typicode.com/posts", bond: 50, owner: "Live demo agent" }),
+  base({ id: 5, name: "EchoWorker",     capabilities: ["text-summary", "security-audit"], price: 4, endpoint: "https://postman-echo.com/post", bond: 50, owner: "Live demo agent" }),
 ];
 
 // Honest seed: the only pre-existing events are the live agents registering.
@@ -94,7 +110,11 @@ export function timeAgo(ts: number) {
 type AgentsState = {
   agents: Agent[];
   activity: ActivityEvent[];
-  addAgent: (a: Pick<Agent, "name" | "capabilities" | "price" | "endpoint" | "owner">) => void;
+  addAgent: (a: Pick<Agent, "name" | "capabilities" | "price" | "endpoint" | "owner" | "bond">) => void;
+  stakeBond: (agentId: number, amount: number) => void;
+  lockBond: (agentId: number, amount: number) => boolean;
+  releaseBond: (agentId: number, amount: number) => void;
+  slashBond: (agentId: number, amount: number, toAgentId?: number) => void;
   recordResult: (agentId: number, job: AgentJob) => void;
   rateAgent: (agentId: number, stars: number) => void;
   penalise: (agentId: number) => void;
@@ -115,12 +135,41 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
     ].slice(0, 15));
   }
 
-  function addAgent(a: Pick<Agent, "name" | "capabilities" | "price" | "endpoint" | "owner">) {
+  function addAgent(a: Pick<Agent, "name" | "capabilities" | "price" | "endpoint" | "owner" | "bond">) {
     setAgents(prev => [
       base({ ...a, id: Math.max(0, ...prev.map(p => p.id)) + 1 }),
       ...prev,
     ]);
     addActivity(`${a.name} joined the marketplace (${a.capabilities.join(", ")})`, "new");
+  }
+
+  // Adds free stake to an agent (the caller has already taken it from a wallet).
+  function stakeBond(agentId: number, amount: number) {
+    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, bond: round2(freeBond(a) + amount) } : a));
+  }
+
+  // Moves stake from free to locked for a job. False if the agent can't cover it.
+  function lockBond(agentId: number, amount: number) {
+    const agent = agents.find(a => a.id === agentId);
+    if (!agent || freeBond(agent) < amount) return false;
+    setAgents(prev => prev.map(a => a.id === agentId && freeBond(a) >= amount
+      ? { ...a, bond: round2(freeBond(a) - amount), bondLocked: round2((a.bondLocked ?? 0) + amount) } : a));
+    return true;
+  }
+
+  // The job was delivered: the locked stake goes back to the agent.
+  function releaseBond(agentId: number, amount: number) {
+    setAgents(prev => prev.map(a => a.id === agentId
+      ? { ...a, bond: round2(freeBond(a) + amount), bondLocked: round2(Math.max(0, (a.bondLocked ?? 0) - amount)) } : a));
+  }
+
+  // The job was breached: the locked stake leaves the agent. When the wronged
+  // party is another agent it lands in that agent's stake; a human poster is
+  // paid by the caller through the wallet.
+  function slashBond(agentId: number, amount: number, toAgentId?: number) {
+    setAgents(prev => prev.map(a =>
+      a.id === agentId ? { ...a, bondLocked: round2(Math.max(0, (a.bondLocked ?? 0) - amount)) } :
+      a.id === toAgentId ? { ...a, bond: round2(freeBond(a) + amount) } : a));
   }
 
   // Records a finished dispatch: updates counters, response time, history, and
@@ -158,7 +207,7 @@ export function AgentsProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AgentsContext.Provider value={{ agents, activity, addAgent, recordResult, rateAgent, penalise, reward, addActivity }}>
+    <AgentsContext.Provider value={{ agents, activity, addAgent, stakeBond, lockBond, releaseBond, slashBond, recordResult, rateAgent, penalise, reward, addActivity }}>
       {children}
     </AgentsContext.Provider>
   );

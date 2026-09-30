@@ -13,6 +13,10 @@ export type SubJob = {
   ms: number;
   endpoint: string;
   result: string;
+  // Collateral the sub-agent locked when it was hired, and whether it was
+  // slashed to the hiring agent because the sub-job failed.
+  bond?: number;
+  breached?: boolean;
 };
 
 export type Task = {
@@ -35,6 +39,12 @@ export type Task = {
   // Plain-language terms the agent accepts by taking the job. The arbiter
   // judges a dispute against these, not just against the description.
   terms?: string;
+  // Collateral the assigned agent locked when it took the job; settled once
+  // the poster accepts (rates) the result or the arbiter rules.
+  agentBond?: number;
+  bondSettled?: boolean;
+  // When a delivered job's bond returns on its own if nobody has disputed it.
+  bondReleaseTs?: number;
   // Dispute / adjudication
   disputeReason?: string;
   verdict?: "refund" | "release";
@@ -49,6 +59,10 @@ export type Task = {
 // All seed tasks are OPEN — nothing here is a fabricated "completed" result.
 // When you assign any of these to a live agent, the result you see is a real
 // HTTP response produced during the demo.
+// How long a delivered job stays open to dispute before the agent's bond is
+// returned without anyone accepting it by hand.
+export const DISPUTE_WINDOW_MS = 2 * 60_000;
+
 export const MOCK_TASKS: Task[] = [
   { id: 47, title: "Report SOL price in Turkish",     description: "Solana price in USD",                          capability: "data-analysis",  budget: 12, poster: "A2A demo", status: "open", secondCapability: "translation", terms: "The price must be fetched live, not invented. The Turkish sentence must contain the same number.", createdAt: "just now" },
   { id: 46, title: "Translate greeting to Turkish",   description: "Good morning, welcome to the marketplace",     capability: "translation",    budget: 3,  poster: "demo",    status: "open", createdAt: "just now" },

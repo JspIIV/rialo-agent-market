@@ -1,11 +1,11 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { ClipboardList, Plus, Zap, Clock, CheckCircle, AlertCircle, XCircle, Loader2, ChevronDown, Send, Radio, Star, Timer, Scale, Gavel, Undo2 } from "lucide-react";
+import { ClipboardList, Plus, Zap, Clock, CheckCircle, AlertCircle, XCircle, Loader2, ChevronDown, Send, Radio, Star, Timer, Scale, Gavel, Undo2, Lock } from "lucide-react";
 import clsx from "clsx";
 import { useWallet } from "@/context/WalletContext";
-import { useAgents, Agent, isLiveAgent, feeSplit, PROTOCOL_FEE_BPS } from "@/context/AgentsContext";
-import { useTasks, Task, TaskStatus } from "@/context/TasksContext";
+import { useAgents, Agent, isLiveAgent, feeSplit, PROTOCOL_FEE_BPS, bondFor, freeBond } from "@/context/AgentsContext";
+import { useTasks, Task, TaskStatus, DISPUTE_WINDOW_MS } from "@/context/TasksContext";
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; icon: React.FC<{className?:string}> }> = {
   open:        { label: "Open",        color: "bg-white/[0.06]  text-[#F5F0E6]/70 border border-white/10", icon: ClipboardList },
@@ -33,7 +33,7 @@ function TasksPageInner() {
   const [disputeDraft, setDisputeDraft] = useState<{ id: number; reason: string } | null>(null);
   const [arbitrating, setArbitrating] = useState<number | null>(null);
   const { pubkey, balance, spend, refund } = useWallet();
-  const { agents, recordResult, rateAgent, penalise, reward, addActivity } = useAgents();
+  const { agents, recordResult, rateAgent, penalise, reward, addActivity, lockBond, releaseBond, slashBond } = useAgents();
 
   // Sync filter with ?filter= in the URL so the wallet menu can deep-link here.
   const searchParams = useSearchParams();
@@ -63,6 +63,25 @@ function TasksPageInner() {
     const timer = setInterval(check, 5000);
     return () => clearInterval(timer);
   }, [setTasks, refund, addActivity]);
+
+  // A delivered job's bond returns once its dispute window passes quietly.
+  useEffect(() => {
+    const check = () => {
+      const now = Date.now();
+      const due = tasks.filter(t =>
+        t.status === "completed" && t.agentBond && !t.bondSettled && t.assignedAgentId && t.bondReleaseTs && t.bondReleaseTs < now);
+      if (due.length === 0) return;
+      due.forEach(t => {
+        releaseBond(t.assignedAgentId!, t.agentBond!);
+        addActivity(`Task #${t.id} dispute window closed · ${t.assignedAgent}'s ${t.agentBond} RIALO bond returned`, "completed");
+      });
+      const ids = new Set(due.map(t => t.id));
+      setTasks(prev => prev.map(t => ids.has(t.id) ? { ...t, bondSettled: true } : t));
+    };
+    check();
+    const timer = setInterval(check, 5000);
+    return () => clearInterval(timer);
+  }, [tasks, setTasks, releaseBond, addActivity]);
 
   const q = search.trim().toLowerCase();
   const myPoster = pubkey ?? "";
@@ -163,18 +182,27 @@ function TasksPageInner() {
         : "The agent returned a valid response fulfilling the task. The complaint does not override delivery, so the escrow is released to the agent.";
     }
 
+    // The agent's locked bond follows the verdict: slashed to the poster on a
+    // refund, returned to the agent on a release.
+    const bond = task.agentBond && !task.bondSettled && task.assignedAgentId ? task.agentBond : 0;
     if (verdict === "refund") {
-      refund(task.budget);
-      if (task.assignedAgentId) penalise(task.assignedAgentId);
+      refund(task.budget + bond);
+      if (task.assignedAgentId) {
+        penalise(task.assignedAgentId);
+        if (bond) slashBond(task.assignedAgentId, bond);
+      }
       setTasks(prev => prev.map(t => t.id === taskId
-        ? { ...t, status: "refunded" as TaskStatus, verdict, verdictReasoning: reasoning, verdictBy, verdictTxHash: txHash } : t));
-      addActivity(`Arbiter ruled REFUND on Task #${taskId} · ${task.budget} RIALO returned to poster`, "failed");
+        ? { ...t, status: "refunded" as TaskStatus, verdict, verdictReasoning: reasoning, verdictBy, verdictTxHash: txHash, bondSettled: true } : t));
+      addActivity(`Arbiter ruled REFUND on Task #${taskId} · ${task.budget} RIALO returned to poster${bond ? `, ${task.assignedAgent}'s ${bond} RIALO bond slashed to poster` : ""}`, "failed");
     } else {
       const { toAgent, fee } = feeSplit(task.budget);
-      if (task.assignedAgentId) reward(task.assignedAgentId);
+      if (task.assignedAgentId) {
+        reward(task.assignedAgentId);
+        if (bond) releaseBond(task.assignedAgentId, bond);
+      }
       setTasks(prev => prev.map(t => t.id === taskId
-        ? { ...t, status: "completed" as TaskStatus, verdict, verdictReasoning: reasoning, verdictBy, verdictTxHash: txHash } : t));
-      addActivity(`Arbiter ruled RELEASE on Task #${taskId} · ${toAgent} to agent, ${fee} fee`, "completed");
+        ? { ...t, status: "completed" as TaskStatus, verdict, verdictReasoning: reasoning, verdictBy, verdictTxHash: txHash, bondSettled: true } : t));
+      addActivity(`Arbiter ruled RELEASE on Task #${taskId} · ${toAgent} to agent, ${fee} fee${bond ? `, ${bond} RIALO bond returned` : ""}`, "completed");
     }
     setArbitrating(null);
   }
@@ -182,9 +210,14 @@ function TasksPageInner() {
   function rateTask(taskId: number, stars: number) {
     const task = tasks.find(t => t.id === taskId);
     if (!task || task.rating) return;
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, rating: stars } : t));
-    if (task.assignedAgentId) rateAgent(task.assignedAgentId, stars);
-    addActivity(`Task #${taskId} rated ${stars}★ · ${task.assignedAgent} reputation updated`, "completed");
+    // Rating accepts the result, so the agent's bond comes back.
+    const bond = task.agentBond && !task.bondSettled ? task.agentBond : 0;
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, rating: stars, bondSettled: true } : t));
+    if (task.assignedAgentId) {
+      rateAgent(task.assignedAgentId, stars);
+      if (bond) releaseBond(task.assignedAgentId, bond);
+    }
+    addActivity(`Task #${taskId} rated ${stars}★ · ${task.assignedAgent} reputation updated${bond ? `, ${bond} RIALO bond returned` : ""}`, "completed");
   }
 
   // Live agents (real endpoints) are listed before seeded demo agents.
@@ -232,12 +265,19 @@ function TasksPageInner() {
     if (!task) return;
     const isA2A = !!task.secondCapability;
 
+    // Taking the job means putting collateral behind it.
+    const agentBond = bondFor(task.budget);
+    if (!lockBond(agent.id, agentBond)) {
+      addActivity(`${agent.name} can't take Task #${taskId}: needs a ${agentBond} RIALO bond, has ${freeBond(agent)} staked`, "failed");
+      return;
+    }
+
     setDispatching(taskId);
     setDispatchStep(1);
     setTasks(prev => prev.map(t =>
-      t.id === taskId ? { ...t, status: "in-progress" as TaskStatus, assignedAgent: agent.name, assignedAgentId: agent.id } : t
+      t.id === taskId ? { ...t, status: "in-progress" as TaskStatus, assignedAgent: agent.name, assignedAgentId: agent.id, agentBond } : t
     ));
-    addActivity(`Task #${taskId} "${task.title}" picked up by ${agent.name}`, "in-progress");
+    addActivity(`Task #${taskId} "${task.title}" picked up by ${agent.name} · ${agentBond} RIALO bond locked`, "in-progress");
 
     await pause(700);
     setDispatchStep(2);
@@ -252,42 +292,63 @@ function TasksPageInner() {
       if (isA2A) {
         const { fee } = feeSplit(task.budget);
         // The primary agent maximises its own cut by hiring the cheapest
-        // capable sub-agent (live endpoints preferred).
+        // capable sub-agent (live endpoints preferred) that can bond the job.
+        const budgetForSub = task.budget - fee;
         const candidates = eligibleAgents(task.secondCapability!)
-          .filter(a => a.id !== agent.id)
+          .filter(a => a.id !== agent.id && a.price <= budgetForSub && freeBond(a) >= bondFor(a.price))
           .sort((a, b) => (Number(isLiveAgent(b)) - Number(isLiveAgent(a))) || (a.price - b.price));
         const subAgent = candidates[0];
-        const budgetForSub = task.budget - fee;
 
-        if (subAgent && subAgent.price <= budgetForSub) {
+        if (subAgent && lockBond(subAgent.id, bondFor(subAgent.price))) {
+          const subBond = bondFor(subAgent.price);
           setDispatchStep(3);
-          addActivity(`A2A: ${agent.name} is hiring ${subAgent.name} for ${task.secondCapability}`, "in-progress");
+          addActivity(`A2A: ${agent.name} is hiring ${subAgent.name} for ${task.secondCapability} · ${subBond} RIALO bond locked`, "in-progress");
           await pause(700);
           setDispatchStep(4);
           const s0 = performance.now();
           const subInput = chainInput(result, subAgent);
-          const subResult = await callAgentEndpoint(subAgent, subInput);
-          const subMs = Math.round(performance.now() - s0);
-          subJob = {
-            agentId: subAgent.id, agentName: subAgent.name, capability: task.secondCapability!,
-            cost: subAgent.price, ms: subMs, endpoint: subAgent.endpoint, result: subResult,
-          };
-          recordResult(subAgent.id, { taskId, taskTitle: `${task.title} (sub)`, ms: subMs, success: true, ts: Date.now() });
-          addActivity(`A2A: ${subAgent.name} delivered sub-job in ${subMs}ms for ${subAgent.price} RIALO`, "completed");
+          try {
+            const subResult = await callAgentEndpoint(subAgent, subInput);
+            const subMs = Math.round(performance.now() - s0);
+            // The hiring agent accepts the delivery, so the bond comes back.
+            releaseBond(subAgent.id, subBond);
+            subJob = {
+              agentId: subAgent.id, agentName: subAgent.name, capability: task.secondCapability!,
+              cost: subAgent.price, ms: subMs, endpoint: subAgent.endpoint, result: subResult, bond: subBond,
+            };
+            recordResult(subAgent.id, { taskId, taskTitle: `${task.title} (sub)`, ms: subMs, success: true, ts: Date.now() });
+            addActivity(`A2A: ${subAgent.name} delivered sub-job in ${subMs}ms for ${subAgent.price} RIALO · bond returned`, "completed");
+          } catch (subErr) {
+            // The sub-agent breached: it is not paid, and its bond goes to the
+            // agent that hired it. The primary's own result still stands.
+            const subMs = Math.round(performance.now() - s0);
+            slashBond(subAgent.id, subBond, agent.id);
+            subJob = {
+              agentId: subAgent.id, agentName: subAgent.name, capability: task.secondCapability!,
+              cost: 0, ms: subMs, endpoint: subAgent.endpoint, result: "Sub-agent call failed: " + (subErr as Error).message,
+              bond: subBond, breached: true,
+            };
+            recordResult(subAgent.id, { taskId, taskTitle: `${task.title} (sub)`, ms: subMs, success: false, ts: Date.now() });
+            addActivity(`A2A: ${subAgent.name} failed the sub-job · ${subBond} RIALO bond slashed to ${agent.name}`, "failed");
+          }
+        } else {
+          addActivity(`A2A: no ${task.secondCapability} agent could bond the sub-job, ${agent.name} delivers alone`, "failed");
         }
       }
 
-      const finalResult = subJob ? `${result}  →  ${subJob.result}` : result;
+      const finalResult = subJob && !subJob.breached ? `${result}  →  ${subJob.result}` : result;
       setDispatchStep(isA2A ? 5 : 3);
       await pause(900);
       setTasks(prev => prev.map(t =>
         t.id === taskId
-          ? { ...t, status: "completed" as TaskStatus, result: finalResult, durationMs: ms, dispatchedTo: agent.endpoint, requestPayload: payloadFor(agent, task), subJob }
+          ? { ...t, status: "completed" as TaskStatus, result: finalResult, durationMs: ms, dispatchedTo: agent.endpoint, requestPayload: payloadFor(agent, task), subJob, bondReleaseTs: Date.now() + DISPUTE_WINDOW_MS }
           : t
       ));
       recordResult(agent.id, { taskId, taskTitle: task.title, ms, success: true, ts: Date.now() });
       const { toAgent, fee } = feeSplit(task.budget);
-      if (subJob) {
+      if (subJob?.breached) {
+        addActivity(`Task #${taskId} completed by ${agent.name} without its sub-agent · ${toAgent} released, ${fee} fee`, "completed");
+      } else if (subJob) {
         addActivity(`Task #${taskId} completed via A2A · ${(toAgent - subJob.cost).toFixed(2)} to ${agent.name}, ${subJob.cost} to ${subJob.agentName}, ${fee} fee`, "completed");
       } else {
         addActivity(`Task #${taskId} completed by ${agent.name} in ${ms}ms · ${toAgent} released, ${fee} fee`, "completed");
@@ -506,6 +567,11 @@ function TasksPageInner() {
                 <span className="px-2 py-0.5 bg-white/[0.04] rounded-md"><span className="text-white font-medium">{task.budget}</span> RIALO</span>
                 {task.assignedAgent && <span className="px-2 py-0.5 bg-white/[0.04] rounded-md">→ <span className="text-white/60">{task.assignedAgent}</span></span>}
                 {task.subJob && <span className="px-2 py-0.5 bg-copper-400/10 text-copper-300 rounded-md">hired <span className="font-medium">{task.subJob.agentName}</span></span>}
+                {!!task.agentBond && !task.bondSettled && (
+                  <span className="px-2 py-0.5 bg-rialo-600/10 text-rialo-300 rounded-md flex items-center gap-1" title="Collateral the agent locked for this job. Rating the result, or the dispute window passing, returns it; a refund verdict slashes it to the poster.">
+                    <Lock className="w-3 h-3" />{task.agentBond} bond locked
+                  </span>
+                )}
                 {task.status === "open" && task.deadlineTs && (
                   <span className="px-2 py-0.5 bg-orange-600/10 text-orange-400 rounded-md flex items-center gap-1"><Timer className="w-3 h-3" />deadline set</span>
                 )}
@@ -557,7 +623,15 @@ function TasksPageInner() {
                 <div className="flex items-center gap-2 text-xs text-white/40 flex-wrap">
                   <CheckCircle className="w-3.5 h-3.5 text-rialo-400" />
                   Escrow released:
-                  {task.subJob ? (
+                  {task.subJob?.breached ? (
+                    <>
+                      <span className="text-rialo-400 font-medium">{split.toAgent} → {task.assignedAgent}</span>
+                      <span className="text-white/25">·</span>
+                      <span className="text-red-300">{task.subJob.agentName} breached · {task.subJob.bond} bond slashed to {task.assignedAgent}</span>
+                      <span className="text-white/25">·</span>
+                      <span className="text-white/50">{split.fee} → protocol</span>
+                    </>
+                  ) : task.subJob ? (
                     <>
                       <span className="text-rialo-400 font-medium">{(split.toAgent - task.subJob.cost).toFixed(2)} → {task.assignedAgent}</span>
                       <span className="text-white/25">·</span>
@@ -599,7 +673,7 @@ function TasksPageInner() {
                       <ChevronDown className={clsx("w-3.5 h-3.5 transition-transform", expandedId === task.id && "rotate-180")} />
                       Dispatch details
                     </button>
-                    {task.status === "completed" && !task.verdict && (
+                    {task.status === "completed" && !task.verdict && !task.rating && (
                       <button onClick={() => setDisputeDraft({ id: task.id, reason: "" })}
                         className="flex items-center gap-1.5 text-xs text-white/30 hover:text-red-400 transition-all"
                         title="Not happy with the result? File a dispute — the escrow freezes until an arbiter rules.">
@@ -682,7 +756,7 @@ function TasksPageInner() {
               {task.status === "disputed" && (
                 <div className="bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3">
                   <div className="text-xs font-medium text-white/70 flex items-center gap-2">
-                    <Scale className="w-3.5 h-3.5 text-rialo-400" /> Case file · escrow frozen ({task.budget} RIALO)
+                    <Scale className="w-3.5 h-3.5 text-rialo-400" /> Case file · escrow frozen ({task.budget} RIALO){task.agentBond && !task.bondSettled ? ` · ${task.agentBond} RIALO agent bond at stake` : ""}
                   </div>
                   <div className="grid gap-2 text-xs">
                     <div className="bg-white/[0.03] rounded-lg px-3 py-2">
@@ -734,8 +808,8 @@ function TasksPageInner() {
                         <div className="px-4 py-3 text-xs text-white/40">No active agents registered for &ldquo;{task.capability}&rdquo; yet. Register one on the Agents page.</div>
                       ) : (
                         eligibleAgents(task.capability).map(agent => (
-                          <button key={agent.id} onClick={() => dispatchToAgent(task.id, agent)}
-                            className="w-full text-left px-4 py-3 text-sm hover:bg-rialo-600/10 transition-all border-b border-white/5 last:border-0">
+                          <button key={agent.id} onClick={() => dispatchToAgent(task.id, agent)} disabled={freeBond(agent) < bondFor(task.budget)}
+                            className="w-full text-left px-4 py-3 text-sm hover:bg-rialo-600/10 transition-all border-b border-white/5 last:border-0 disabled:opacity-40 disabled:hover:bg-transparent">
                             <div className="flex items-center gap-2">
                               <span className="font-medium">{agent.name}</span>
                               {isLiveAgent(agent) ? (
@@ -747,6 +821,9 @@ function TasksPageInner() {
                               )}
                             </div>
                             <div className="text-xs text-white/30 font-mono truncate mt-0.5">{agent.endpoint}</div>
+                            <div className={clsx("text-[10px] mt-0.5 flex items-center gap-1", freeBond(agent) < bondFor(task.budget) ? "text-red-300" : "text-white/30")}>
+                              <Lock className="w-2.5 h-2.5" />locks {bondFor(task.budget)} RIALO bond · {freeBond(agent)} staked
+                            </div>
                           </button>
                         ))
                       )}
