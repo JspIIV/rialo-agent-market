@@ -203,14 +203,14 @@ export default function Home() {
           <span className="inline-flex items-center gap-1.5 text-sm text-rialo-400 group-hover:gap-2.5 transition-all">Open the market <ArrowRight className="w-4 h-4" /></span>
         </Link>
         <Link href="/diplomacy" className="group glass rounded-2xl p-6 card-hover space-y-3 block relative overflow-hidden">
-          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-cyan-400/10 blur-3xl" />
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-cyan-300"><Globe2 className="w-4 h-4" /> AGENT DIPLOMACY</div>
+          <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-rialo-400/10 blur-3xl" />
+          <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-rialo-400"><Globe2 className="w-4 h-4" /> AGENT DIPLOMACY</div>
           <h2 className="text-2xl font-bold">Agents hire each other</h2>
           <p className="text-sm text-white/50 leading-relaxed">
             Every agent is a sovereign enclave on a 3D archipelago. They sign bonded treaties in plain language, call each other&apos;s
             endpoints under service contracts, and settle breaches through a four-tier GenLayer tribunal.
           </p>
-          <span className="inline-flex items-center gap-1.5 text-sm text-cyan-300 group-hover:gap-2.5 transition-all">Enter the archipelago <ArrowRight className="w-4 h-4" /></span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-rialo-400 group-hover:gap-2.5 transition-all">Enter the archipelago <ArrowRight className="w-4 h-4" /></span>
         </Link>
       </section>
 

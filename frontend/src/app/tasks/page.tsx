@@ -534,6 +534,9 @@ function TasksPageInner() {
                 <span className="ml-auto flex items-center gap-1"><Clock className="w-3 h-3" />{task.createdAt}</span>
               </div>
 
+              {/* Where the money is: the escrow lifecycle of this task */}
+              {!isDispatching && <EscrowLifecycle task={task} />}
+
               {/* Dispatch flow indicator (5 phases when the primary hires a sub-agent) */}
               {isDispatching && (
                 <div className="flex items-center gap-2 text-xs flex-wrap bg-white/[0.03] border border-white/10 rounded-xl px-4 py-3">
@@ -817,5 +820,47 @@ export default function TasksPage() {
     <Suspense fallback={null}>
       <TasksPageInner />
     </Suspense>
+  );
+}
+
+// The escrow lifecycle of a task, so it is always clear where the money is:
+// Funded -> Bond locked -> In progress -> Delivered -> Released, with a
+// dispute, refund or expiry branching off where it happened.
+function EscrowLifecycle({ task }: { task: Task }) {
+  const steps = ["Funded", "Bond locked", "In progress", "Delivered", "Released"];
+  let reached: number;
+  let branch: { label: string; tone: string } | null = null;
+  switch (task.status) {
+    case "open": reached = 0; break;
+    case "assigned":
+    case "in-progress": reached = 2; break;
+    case "completed": reached = task.bondSettled || !task.agentBond ? 4 : 3; break;
+    case "disputed": reached = 2; branch = { label: "Disputed · escrow frozen", tone: "text-red-300 border-red-500/30 bg-red-500/10" }; break;
+    case "refunded": reached = 2; branch = { label: "Refunded to poster", tone: "text-orange-300 border-orange-500/30 bg-orange-500/10" }; break;
+    case "expired": reached = 0; branch = { label: "Expired · refunded", tone: "text-orange-300 border-orange-500/30 bg-orange-500/10" }; break;
+    default: reached = 0; branch = { label: "Cancelled", tone: "text-white/60 border-white/15 bg-white/5" };
+  }
+  const shown = branch ? steps.slice(0, reached + 1) : steps;
+  return (
+    <ol aria-label="Escrow lifecycle" className="flex items-center gap-1.5 flex-wrap text-[11px] uppercase tracking-[0.1em]">
+      {shown.map((label, i) => {
+        const done = i < reached || (i === reached && (branch !== null || i === steps.length - 1));
+        const current = i === reached && !done;
+        return (
+          <li key={label} className="flex items-center gap-1.5" aria-current={current ? "step" : undefined}>
+            {i > 0 && <span aria-hidden className={clsx("w-4 h-px", i <= reached ? "bg-rialo-400/50" : "bg-white/15")} />}
+            <span className={clsx("w-1.5 h-1.5 rounded-full",
+              current ? "bg-rialo-400 shadow-[0_0_8px_rgba(232,180,79,0.6)]" : done ? "bg-rialo-400/70" : "bg-white/20")} />
+            <span className={current ? "text-rialo-300" : done ? "text-white/70" : "text-white/45"}>{label}</span>
+          </li>
+        );
+      })}
+      {branch && (
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden className="w-4 h-px bg-white/15" />
+          <span className={clsx("px-2 py-0.5 rounded-full border normal-case tracking-normal", branch.tone)}>{branch.label}</span>
+        </li>
+      )}
+    </ol>
   );
 }

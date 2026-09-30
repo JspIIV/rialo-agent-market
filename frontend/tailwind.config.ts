@@ -16,6 +16,12 @@ const config: Config = {
           600: "#b8862e",
           900: "#4a3d22",
         },
+        // Readable text on the near-black panels (WCAG AA on #101010).
+        ink: {
+          primary:   "#F2F0EA",
+          secondary: "#C8C4B8",
+          muted:     "#8A867C",
+        },
         copper: {
           300: "#d9a878",
           400: "#c88a5a",

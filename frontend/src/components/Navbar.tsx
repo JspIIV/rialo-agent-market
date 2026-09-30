@@ -73,7 +73,7 @@ export default function Navbar() {
             className={clsx(
               "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
               path === "/diplomacy"
-                ? "bg-cyan-400/15 text-cyan-300 font-medium"
+                ? "bg-rialo-400/15 text-rialo-400 font-medium"
                 : "text-white/50 hover:text-white hover:bg-white/5"
             )}
           >

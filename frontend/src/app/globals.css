@@ -111,3 +111,17 @@ h1, h2, h3, .font-display {
   50% { opacity: 0.4; }
 }
 .step-active { animation: step-pulse 1.2s ease-in-out infinite; }
+
+/* Agent Diplomacy: visible keyboard focus on every control. */
+.dip button:focus-visible,
+.dip a:focus-visible,
+.dip select:focus-visible,
+.dip input:focus-visible,
+.dip textarea:focus-visible,
+.dip [tabindex]:focus-visible {
+  outline: 2px solid #e8b44f;
+  outline-offset: 2px;
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

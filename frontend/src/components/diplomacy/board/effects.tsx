@@ -158,15 +158,17 @@ export function Hub({ escrow, reserves, showLabel }: { escrow: number; reserves:
       </group>
       <pointLight position={[0, 4, 0]} color="#e8b44f" intensity={20} distance={24} decay={2} />
       {showLabel && (
-        <Html center distanceFactor={28} position={[0, 6.2, 0]} pointerEvents="none" zIndexRange={[0, 10]}>
+        <Html center position={[0, 6.2, 0]} pointerEvents="none" zIndexRange={[0, 10]}>
           <div style={{
             fontFamily: "ui-monospace, SFMono-Regular, monospace", whiteSpace: "nowrap", textAlign: "center",
             background: "rgba(10,10,10,0.85)", border: "1px solid #e8b44f66", borderRadius: 4, padding: "4px 10px",
           }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: "#e8b44f" }}>RIALO ESCROW</div>
-            <div style={{ fontSize: 8, color: "#a3a3a3", letterSpacing: 1, marginTop: 2 }}>
-              {escrow} RIALO LOCKED · {reserves} IN RESERVES
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: "#e8b44f" }}>RIALO ESCROW</div>
+            {!(typeof window !== "undefined" && window.innerWidth < 640) && (
+              <div style={{ fontSize: 9, color: "#C8C4B8", letterSpacing: 0.8, marginTop: 1 }}>
+                {escrow} RIALO LOCKED · {reserves} IN RESERVES
+              </div>
+            )}
           </div>
         </Html>
       )}

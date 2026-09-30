@@ -23,6 +23,9 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
+// On a phone the board is small: labels carry the name only.
+const COMPACT_LABELS = typeof window !== "undefined" && window.innerWidth < 640;
+
 function tileColor(height: number, radius: number, base: string, ridge: string, status: VisualStatus) {
   const c = new THREE.Color(base).lerp(new THREE.Color(ridge), Math.min(1, height / (radius + 3)));
   if (status === "sanctioned") c.lerp(new THREE.Color("#ef4444"), 0.22).multiplyScalar(0.55);
@@ -112,6 +115,15 @@ export default function Island({ enclave, layout, status, treatyCount, active, i
   // Newly founded realms rise out of the void with a shockwave ring.
   const rise = useRef<THREE.Group>(null);
   const shock = useRef<THREE.Mesh>(null);
+  const label = useRef<HTMLDivElement>(null);
+  const here = useMemo(() => new THREE.Vector3(layout.x, baseY, layout.z), [layout.x, layout.z, baseY]);
+  const important = active || isYours || status !== "active";
+  useFrame(({ camera }) => {
+    if (!label.current) return;
+    const d = camera.position.distanceTo(here);
+    label.current.style.opacity = String(important ? 1 : Math.max(0, Math.min(1, (125 - d) / 35)));
+  });
+
   const born = useRef(Date.now() - enclave.foundedAt < 4000);
   useFrame(() => {
     if (!born.current) return;
@@ -170,19 +182,21 @@ export default function Island({ enclave, layout, status, treatyCount, active, i
       {status === "sanctioned" && <ContainmentGrid position={[layout.x, baseY, layout.z]} />}
 
       {showLabel && (
-        <Html center distanceFactor={28} position={[layout.x, baseY + 5.6, layout.z]} pointerEvents="none" zIndexRange={[0, 10]}>
-          <div style={{
+        // Screen-space label: a fixed pixel size at any zoom, faded out with
+        // distance unless the island matters right now.
+        <Html center position={[layout.x, baseY + 5.6, layout.z]} pointerEvents="none" zIndexRange={[0, 10]}>
+          <div ref={label} style={{
             fontFamily: "ui-monospace, SFMono-Regular, monospace", whiteSpace: "nowrap", textAlign: "center",
-            userSelect: "none", pointerEvents: "none", background: "rgba(10,10,10,0.82)",
-            border: `1px solid ${statusColor}66`, borderRadius: 4, padding: "4px 9px",
-            boxShadow: `0 0 12px ${statusColor}33`, opacity: active ? 1 : 0.9,
+            userSelect: "none", pointerEvents: "none", background: "rgba(10,10,10,0.8)",
+            border: `1px solid ${active ? "#e8b44f" : statusColor + "66"}`, borderRadius: 6, padding: "3px 8px",
+            boxShadow: `0 0 12px ${statusColor}33`, transition: "opacity 0.2s",
           }}>
-            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, color: statusColor }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.5, color: statusColor }}>
               {enclave.name.toUpperCase()}{isYours ? " ◆" : ""}
             </div>
-            <div style={{ fontSize: 8, color: "#a3a3a3", letterSpacing: 1, marginTop: 2 }}>
+            {!COMPACT_LABELS && <div style={{ fontSize: 9, color: "#C8C4B8", letterSpacing: 0.8, marginTop: 1 }}>
               {STATUS_LABEL[status]} · REP {enclave.reputation} · {treatyCount} TREAT{treatyCount === 1 ? "Y" : "IES"}
-            </div>
+            </div>}
           </div>
         </Html>
       )}

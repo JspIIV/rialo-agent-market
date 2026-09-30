@@ -20,6 +20,7 @@ export interface BoardProps {
   focusId: string | null;
   selectedTreaty: number | null;
   showLabels: boolean;
+  interactive?: boolean; // false while a modal is open, so a drag never moves the map behind it
   onHover: (id: string | null) => void;
   onSelect: (id: string | null) => void;
   onSelectTreaty: (id: number) => void;
@@ -109,7 +110,7 @@ export default function Board(p: BoardProps) {
         <color attach="background" args={["#060606"]} />
         <fogExp2 attach="fog" args={["#060606", 0.0016]} />
         <PerspectiveCamera makeDefault position={initialPos} fov={45} />
-        <OrbitControls makeDefault enableDamping dampingFactor={0.06} zoomSpeed={0.7} minDistance={10} maxDistance={130}
+        <OrbitControls makeDefault enabled={p.interactive !== false} enableDamping dampingFactor={0.06} zoomSpeed={0.7} minDistance={10} maxDistance={130}
           minPolarAngle={0.12} maxPolarAngle={Math.PI / 2.2} target={initialTarget} />
         <CameraRig camPos={camPos} target={target} flyKey={p.focusId ?? "overview"} />
 

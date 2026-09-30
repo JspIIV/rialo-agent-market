@@ -1,17 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { X, Castle, ScrollText, Scale, Gavel, AlertTriangle } from "lucide-react";
+import { X, Castle, ScrollText, Scale, Gavel, AlertTriangle, ShieldX, ShieldAlert, BadgeCheck, Flag } from "lucide-react";
 import clsx from "clsx";
 import * as E from "@/lib/diplomacy/engine";
 import { useAgents } from "@/context/AgentsContext";
 import { enclaveInputFromAgent, useDiplomacy, type Verdict } from "@/context/DiplomacyContext";
 import { useWallet } from "@/context/WalletContext";
 
-export const inputCls = "w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-rialo-600/60 transition-all";
-export const labelCls = "text-xs text-white/50";
+export const inputCls = "w-full bg-[#161616] border border-white/15 rounded-lg px-3 py-2 text-base sm:text-sm placeholder:text-ink-muted outline-none focus:border-rialo-600/60 transition-all";
+export const labelCls = "text-xs text-ink-secondary";
 export const btnPrimary = "px-4 py-2 bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black rounded-lg text-sm font-semibold transition-all disabled:opacity-40";
-export const btnGhost = "px-4 py-2 border border-white/10 hover:border-white/30 rounded-lg text-sm text-white/60 hover:text-white transition-all";
+export const btnGhost = "px-4 py-2 border border-white/10 hover:border-white/30 rounded-lg text-sm text-ink-secondary hover:text-white transition-all";
 
 export function Modal({ title, icon: Icon, onClose, children, wide }: {
   title: string; icon: React.FC<{ className?: string }>; onClose: () => void; children: React.ReactNode; wide?: boolean;
@@ -22,7 +22,7 @@ export function Modal({ title, icon: Icon, onClose, children, wide }: {
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-lg flex items-center gap-2"><Icon className="w-5 h-5 text-rialo-400" />{title}</h2>
-          <button onClick={onClose} className="text-white/40 hover:text-white" aria-label="Close"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="text-ink-secondary hover:text-white" aria-label="Close"><X className="w-4 h-4" /></button>
         </div>
         {children}
       </div>
@@ -61,7 +61,7 @@ export function FoundModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title="Found a sovereignty" icon={Castle} onClose={onClose}>
-      <p className="text-xs text-white/45 leading-relaxed">
+      <p className="text-xs text-ink-secondary leading-relaxed">
         An enclave is an agent that has posted collateral and written a charter. Link one of your marketplace agents so other
         agents can hire it under service treaties, or found a sovereign that only signs and litigates.
       </p>
@@ -72,7 +72,7 @@ export function FoundModal({ onClose }: { onClose: () => void }) {
             <option value="">None: a sovereign without an endpoint</option>
             {free.map(a => <option key={a.id} value={a.id}>{a.name} · {a.capabilities.join(", ")} · {a.price} RIALO/call</option>)}
           </select>
-          {free.length === 0 && <p className="text-[11px] text-white/35">Every agent already governs an enclave. Register a new one on the Agents page to link it.</p>}
+          {free.length === 0 && <p className="text-[11px] text-ink-muted">Every agent already governs an enclave. Register a new one on the Agents page to link it.</p>}
         </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <div className="space-y-1">
@@ -101,7 +101,7 @@ export function FoundModal({ onClose }: { onClose: () => void }) {
             <input type="number" min={0} className={inputCls} value={f.treasury} onChange={e => setF({ ...f, treasury: e.target.value })} />
           </div>
         </div>
-        <div className="text-xs text-white/40">Costs <span className="text-rialo-400 font-medium">{cost} RIALO</span> from your wallet ({balance} available).</div>
+        <div className="text-xs text-ink-secondary">Costs <span className="text-rialo-400 font-medium">{cost} RIALO</span> from your wallet ({balance} available).</div>
         <div className="flex gap-2 pt-1">
           <button type="submit" className={btnPrimary} disabled={cost > balance || !f.name.trim()}>Found enclave</button>
           <button type="button" onClick={onClose} className={btnGhost}>Cancel</button>
@@ -146,7 +146,7 @@ export function ProposeModal({ from, to, onClose }: { from?: string; to?: string
   if (!mine.length) {
     return (
       <Modal title="Propose a treaty" icon={ScrollText} onClose={onClose}>
-        <p className="text-sm text-white/60">Treaties are signed by sovereigns. Found an enclave first, then propose from it.</p>
+        <p className="text-sm text-ink-secondary">Treaties are signed by sovereigns. Found an enclave first, then propose from it.</p>
         <button onClick={onClose} className={btnGhost}>Close</button>
       </Modal>
     );
@@ -186,13 +186,13 @@ export function ProposeModal({ from, to, onClose }: { from?: string; to?: string
             <button type="button" key={k} onClick={() => { setKind(k); suggest(k); }}
               disabled={k === "SERVICE" && !!peer && !peer.endpoint}
               className={clsx("px-3 py-1.5 rounded-lg text-xs border transition-all disabled:opacity-30",
-                kind === k ? "border-rialo-400/60 bg-rialo-400/10 text-rialo-300" : "border-white/10 text-white/50 hover:text-white")}>
+                kind === k ? "border-rialo-400/60 bg-rialo-400/10 text-rialo-300" : "border-white/10 text-ink-secondary hover:text-white")}>
               {E.KIND_LABEL[k]}
             </button>
           ))}
         </div>
         {kind === "SERVICE" && (
-          <p className="text-[11px] text-white/40 -mt-1">You hire {peer?.name ?? "the counterparty"}: every call goes to its real endpoint and pays the fee from a prepaid budget.</p>
+          <p className="text-[11px] text-ink-secondary -mt-1">You hire {peer?.name ?? "the counterparty"}: every call goes to its real endpoint and pays the fee from a prepaid budget.</p>
         )}
         <div className="space-y-1">
           <div className="flex items-center justify-between">
@@ -209,7 +209,7 @@ export function ProposeModal({ from, to, onClose }: { from?: string; to?: string
             <div className="space-y-1"><label className={labelCls}>Calls</label><input type="number" min={1} max={20} className={inputCls} value={calls} onChange={e => setCalls(e.target.value)} /></div>
           </>}
         </div>
-        <div className="text-xs text-white/40">Locks <span className="text-rialo-400 font-medium">{E.r2(escrow)} RIALO</span> from {me?.name}&apos;s treasury in Rialo escrow.</div>
+        <div className="text-xs text-ink-secondary">Locks <span className="text-rialo-400 font-medium">{E.r2(escrow)} RIALO</span> from {me?.name}&apos;s treasury in Rialo escrow.</div>
         {preview && (
           <div className={clsx("rounded-lg border px-3 py-2 text-[11px] leading-relaxed", preview.accept ? "border-emerald-500/25 bg-emerald-500/5 text-emerald-300/90" : "border-red-500/25 bg-red-500/5 text-red-300/90")}>
             <span className="font-medium">{peer?.name}&apos;s decider would {preview.accept ? "ratify" : "reject"} this:</span> {preview.reasons.join("; ")}
@@ -259,19 +259,19 @@ export function DisputeModal({ treatyId, onClose }: { treatyId: number; onClose:
 
   return (
     <Modal title="Initiate bilateral adjudication" icon={Scale} onClose={onClose} wide>
-      <p className="text-xs text-white/45 leading-relaxed">
+      <p className="text-xs text-ink-secondary leading-relaxed">
         A dispute has two halves. The left column is what you assert; the right is what the protocol measures on its own and
         what the tribunal is bound by. GenLayer validators read both, and settlement of the RIALO escrow follows their tier.
       </p>
       <form onSubmit={submit} className="grid md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
-          <div className="text-[11px] font-semibold tracking-widest text-white/40">PLAINTIFF ASSERTS</div>
+          <div className="text-[11px] font-semibold tracking-widest text-ink-secondary">PLAINTIFF ASSERTS</div>
           {mine.length > 1 && (
             <select className={clsx(inputCls, "bg-[#0A0A0A]")} value={plaintiff} onChange={e => setPlaintiff(e.target.value)}>
               {mine.map(id => <option key={id} value={id}>{world.enclaves.find(e => e.id === id)?.name}</option>)}
             </select>
           )}
-          <div className="text-sm"><span className="text-white/40">Filing party: </span>{p.name}</div>
+          <div className="text-sm"><span className="text-ink-secondary">Filing party: </span>{p.name}</div>
           <div className="space-y-1">
             <label className={labelCls}>Allegation</label>
             <textarea rows={3} required className={clsx(inputCls, "resize-none")} value={allegation} onChange={e => setAllegation(e.target.value)}
@@ -280,22 +280,22 @@ export function DisputeModal({ treatyId, onClose }: { treatyId: number; onClose:
           <div className="space-y-1">
             <label className={labelCls}>Evidence URL (https, optional)</label>
             <input className={inputCls} value={evidence} onChange={e => setEvidence(e.target.value)} placeholder="https://..." />
-            <p className="text-[10px] text-white/30">Its SHA-256 is committed when you file. Validators only admit it if it still hashes the same.</p>
+            <p className="text-[10px] text-ink-muted">Its SHA-256 is committed when you file. Validators only admit it if it still hashes the same.</p>
           </div>
         </div>
         <div className="rounded-xl border border-rialo-600/20 bg-rialo-600/[0.04] p-4 space-y-2.5 text-sm">
           <div className="text-[11px] font-semibold tracking-widest text-rialo-300/70">PROTOCOL MEASURES</div>
-          <div><span className="text-white/40">Defendant: </span>{d.name} <span className="text-white/30">({defendantId === t.partyA ? "party_a" : "party_b"})</span></div>
-          <div className="text-xs text-white/50 bg-white/[0.03] rounded-lg p-2.5 leading-relaxed max-h-24 overflow-y-auto">&ldquo;{t.terms}&rdquo;</div>
+          <div><span className="text-ink-secondary">Defendant: </span>{d.name} <span className="text-ink-muted">({defendantId === t.partyA ? "party_a" : "party_b"})</span></div>
+          <div className="text-xs text-ink-secondary bg-white/[0.03] rounded-lg p-2.5 leading-relaxed max-h-24 overflow-y-auto">&ldquo;{t.terms}&rdquo;</div>
           <div>
-            <span className="text-white/40">Service record: </span>
+            <span className="text-ink-secondary">Service record: </span>
             {t.kind === "SERVICE" && defendantId === t.partyB
-              ? <>{failed} of {t.calls.length} calls failed{bps !== null ? <> · <span className="text-rialo-300 font-medium">{bps} bps</span></> : <span className="text-white/35"> (needs {E.MIN_CALLS_FOR_METRIC}+ calls)</span>}</>
+              ? <>{failed} of {t.calls.length} calls failed{bps !== null ? <> · <span className="text-rialo-300 font-medium">{bps} bps</span></> : <span className="text-ink-muted"> (needs {E.MIN_CALLS_FOR_METRIC}+ calls)</span>}</>
               : t.kind === "SERVICE" ? <>hiring party: payment is prepaid, measures 0 bps</> : <>none for a {E.KIND_LABEL[t.kind].toLowerCase()} treaty</>}
           </div>
-          <div className="text-xs text-white/55 flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rialo-400" />{corridorNote(bps)}</div>
-          <div><span className="text-white/40">Dispute bond: </span><span className="text-rialo-300 font-medium">{bond} RIALO</span> <span className="text-white/30 text-xs">(scales with your reputation {p.reputation})</span></div>
-          <div className="text-[11px] text-white/35">Malicious report forfeits the bond. Normal returns it minus {E.VALIDATION_FEE}. Critical breach pays you both bonds and sanctions {d.name}.</div>
+          <div className="text-xs text-ink-secondary flex gap-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-rialo-400" />{corridorNote(bps)}</div>
+          <div><span className="text-ink-secondary">Dispute bond: </span><span className="text-rialo-300 font-medium">{bond} RIALO</span> <span className="text-ink-muted text-xs">(scales with your reputation {p.reputation})</span></div>
+          <div className="text-[11px] text-ink-muted">Malicious report forfeits the bond. Normal returns it minus {E.VALIDATION_FEE}. Critical breach pays you both bonds and sanctions {d.name}.</div>
         </div>
         <div className="md:col-span-2 flex gap-2 items-center">
           <button type="submit" className={btnPrimary} disabled={busy || !allegation.trim() || p.treasury < bond || !!cooling}>
@@ -318,20 +318,38 @@ export const TIER_STYLE: Record<E.Tier, string> = {
   MALICIOUS_REPORT: "text-fuchsia-300 border-fuchsia-500/30 bg-fuchsia-500/10",
 };
 
+// Each tier reads differently at a glance: colour, icon and one plain line.
+const TIER_META: Record<E.Tier, { icon: React.FC<{ className?: string }>; bar: string; line: string }> = {
+  CRITICAL_BREACH: { icon: ShieldX, bar: "#E5484D", line: "Breach proven: the defendant's bond goes to the plaintiff and the enclave is sanctioned." },
+  ELEVATED_RISK: { icon: ShieldAlert, bar: "#FB923C", line: "Partial breach: 25% of the defendant's bond is slashed; the treaty stays in force." },
+  NORMAL: { icon: BadgeCheck, bar: "#34D399", line: "No breach found: the case is dismissed and the filing bond returned minus the fee." },
+  MALICIOUS_REPORT: { icon: Flag, bar: "#C084FC", line: "Frivolous filing: the plaintiff's dispute bond is forfeited to reserves." },
+};
+
 export function VerdictModal({ verdict, onClose }: { verdict: Verdict; onClose: () => void }) {
   const { world } = useDiplomacy();
   const name = (id: string) => world.enclaves.find(e => e.id === id)?.name ?? id;
   return (
     <Modal title={`Tribunal verdict · treaty #${verdict.treatyId}`} icon={Gavel} onClose={onClose}>
-      <div className={clsx("rounded-xl border px-4 py-3 text-center", TIER_STYLE[verdict.tier])}>
-        <div className="text-[11px] tracking-widest opacity-70">VERDICT TIER</div>
-        <div className="text-2xl font-display font-bold mt-0.5">{E.TIER_LABEL[verdict.tier]}</div>
-      </div>
+      {(() => {
+        const { icon: TierIcon, bar, line } = TIER_META[verdict.tier];
+        return (
+          <div className={clsx("rounded-xl border overflow-hidden text-center", TIER_STYLE[verdict.tier])}>
+            <div className="h-1" style={{ background: bar }} />
+            <div className="px-4 py-3">
+              <TierIcon className="w-6 h-6 mx-auto mb-1" />
+              <div className="text-[11px] uppercase tracking-[0.16em] opacity-80">Verdict tier</div>
+              <div className="text-2xl font-display font-bold mt-0.5">{E.TIER_LABEL[verdict.tier]}</div>
+              <div className="text-xs mt-1 opacity-90">{line}</div>
+            </div>
+          </div>
+        );
+      })()}
       <div className="text-sm space-y-2">
-        <div><span className="text-white/40">{name(verdict.plaintiff)}</span> v. <span className="text-white/40">{name(verdict.defendant)}</span></div>
-        <p className="text-white/70 leading-relaxed">{verdict.rationale}</p>
-        <div className="text-xs text-white/50 bg-white/[0.03] rounded-lg px-3 py-2">{verdict.settlement}</div>
-        <div className="text-[11px] text-white/35 flex items-center gap-2 flex-wrap">
+        <div><span className="text-ink-secondary">{name(verdict.plaintiff)}</span> v. <span className="text-ink-secondary">{name(verdict.defendant)}</span></div>
+        <p className="text-ink-primary leading-relaxed">{verdict.rationale}</p>
+        <div className="text-xs text-ink-secondary bg-white/[0.03] rounded-lg px-3 py-2">{verdict.settlement}</div>
+        <div className="text-[11px] text-ink-muted flex items-center gap-2 flex-wrap">
           ruled by {verdict.by}
           {verdict.metricBps !== null && <span>· metric {verdict.metricBps} bps</span>}
           {verdict.txHash && (
