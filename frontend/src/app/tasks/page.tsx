@@ -6,6 +6,7 @@ import clsx from "clsx";
 import { useWallet } from "@/context/WalletContext";
 import { useAgents, Agent, isLiveAgent, feeSplit, PROTOCOL_FEE_BPS, bondFor, freeBond } from "@/context/AgentsContext";
 import { useTasks, Task, TaskStatus, DISPUTE_WINDOW_MS } from "@/context/TasksContext";
+import { callAgentEndpoint } from "@/lib/agentCall";
 
 const STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; icon: React.FC<{className?:string}> }> = {
   open:        { label: "Open",        color: "bg-white/[0.06]  text-[#F5F0E6]/70 border border-white/10", icon: ClipboardList },
@@ -365,51 +366,6 @@ function TasksPageInner() {
     } finally {
       setDispatching(null);
       setDispatchStep(0);
-    }
-  }
-
-  // Calls an agent's endpoint with the given input text as the task payload.
-  async function callAgentEndpoint(agent: Agent, inputText: string): Promise<string> {
-    if (agent.endpoint.includes("api.mymemory.translated.net")) {
-      const url = `${agent.endpoint}?q=${encodeURIComponent(inputText)}&langpair=en|tr`;
-      const data = await fetchWithFallback(url);
-      return data.responseData?.translatedText
-        ? `Live agent response: "${data.responseData.translatedText}"`
-        : "Agent responded but returned no translation.";
-    }
-    if (agent.endpoint.includes("api.coingecko.com")) {
-      const data = await fetchWithFallback(agent.endpoint);
-      const [assetId] = Object.keys(data);
-      const prices = data[assetId];
-      const [currency, value] = Object.entries(prices)[0] as [string, number];
-      return `Live agent response: ${assetId.toUpperCase()} = ${value} ${currency.toUpperCase()}`;
-    }
-    const res = await fetch(agent.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task: inputText, description: inputText }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const text = await res.text();
-    return `Live agent response: ${text.slice(0, 300)}`;
-  }
-
-  async function fetchWithFallback(url: string): Promise<any> {
-    try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return await res.json();
-    } catch (directErr) {
-      try {
-        const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } catch {
-        const reason = directErr instanceof TypeError
-          ? "network/browser blocked the request (check VPN, ad blocker, or firewall)"
-          : (directErr as Error).message;
-        throw new Error(reason);
-      }
     }
   }
 

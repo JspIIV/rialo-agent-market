@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Bot, ClipboardList, LayoutDashboard, Zap, Wallet, LogOut, ChevronDown, AlertCircle, Search, X } from "lucide-react";
+import { Bot, ClipboardList, LayoutDashboard, Globe2, Zap, Wallet, LogOut, ChevronDown, AlertCircle, Search, X } from "lucide-react";
 import { useWallet } from "@/context/WalletContext";
 import { useTasks } from "@/context/TasksContext";
 
@@ -39,15 +39,15 @@ export default function Navbar() {
 
   return (
     <nav className="border-b border-[#1c1c1c] bg-[#0A0A0A] sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-6">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 h-16 flex items-center justify-between gap-2 sm:gap-6">
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rialo-400 to-rialo-600 flex items-center justify-center shadow-lg shadow-rialo-600/30">
             <Zap className="w-4.5 h-4.5 text-black" fill="black" />
           </div>
-          <span className="font-display font-bold text-lg tracking-tight">Agent<span className="text-rialo-400">Market</span></span>
-          <span className="text-[11px] font-medium text-white/35 ml-0.5 border border-white/10 rounded-full px-2 py-0.5">on Rialo</span>
+          <span className="hidden sm:inline font-display font-bold text-lg tracking-tight">Agent<span className="text-rialo-400">Market</span></span>
+          <span className="hidden md:inline text-[11px] font-medium text-white/35 ml-0.5 border border-white/10 rounded-full px-2 py-0.5">on Rialo</span>
         </Link>
 
         {/* Links */}
@@ -57,7 +57,7 @@ export default function Navbar() {
               key={href}
               href={href}
               className={clsx(
-                "flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-sm transition-all",
+                "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
                 path === href
                   ? "bg-rialo-400/15 text-rialo-400 font-medium"
                   : "text-white/50 hover:text-white hover:bg-white/5"
@@ -67,6 +67,19 @@ export default function Navbar() {
               <span className="hidden sm:inline">{label}</span>
             </Link>
           ))}
+          <span className="w-px bg-[#262626] my-1 mx-0.5" />
+          <Link
+            href="/diplomacy"
+            className={clsx(
+              "flex items-center gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-sm transition-all",
+              path === "/diplomacy"
+                ? "bg-cyan-400/15 text-cyan-300 font-medium"
+                : "text-white/50 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <Globe2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Diplomacy</span>
+          </Link>
         </div>
 
         {/* Search */}
@@ -149,10 +162,10 @@ export default function Navbar() {
           <button
             onClick={connect}
             disabled={connecting}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black font-semibold text-sm transition-all disabled:opacity-50 shrink-0 shadow-lg shadow-rialo-600/25"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-rialo-400 to-rialo-500 hover:from-rialo-300 hover:to-rialo-400 text-black font-semibold text-sm transition-all disabled:opacity-50 shrink-0 shadow-lg shadow-rialo-600/25"
           >
             <Wallet className="w-3.5 h-3.5" />
-            {connecting ? "Connecting..." : "Connect Wallet"}
+            <span className="hidden sm:inline">{connecting ? "Connecting..." : "Connect Wallet"}</span>
           </button>
         )}
       </div>

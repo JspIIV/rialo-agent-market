@@ -7,7 +7,7 @@ import { RotateCcw } from "lucide-react";
 export default function ResetDemo() {
   function reset() {
     if (!confirm("Reset the demo to its starting state? This clears agents, tasks and balance you added.")) return;
-    ["am_agents", "am_tasks", "am_activity", "am_balance", "qs_dismissed"].forEach(k => localStorage.removeItem(k));
+    ["am_agents", "am_tasks", "am_activity", "am_balance", "am_diplomacy", "am_diplomacy_auto", "qs_dismissed"].forEach(k => localStorage.removeItem(k));
     location.reload();
   }
   return (
